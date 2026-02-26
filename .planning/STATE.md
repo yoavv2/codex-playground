@@ -5,7 +5,7 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-26T16:59:33Z
+- Last Updated: 2026-02-26T17:24:31Z
 - Git Branch: master
 - Current Milestone: Milestone 1 - Secure Remote Foundation
 - Current Phase: 01 - Prep and Decisions
@@ -38,6 +38,7 @@
 - Mobile app is a remote controller for Codex on the Mac; Codex does not run on the phone.
 - Mobile app will communicate with Farfield via HTTP + SSE APIs.
 - Security hardening is required before real remote use.
+- Codex approval prompt support (command/file/apply-patch) is MVP-blocking for practical remote usage.
 - Preferred remote access path is Tailscale (to confirm and document in Phase 01).
 - Workflow mode is `yolo` unless overridden per command.
 
@@ -46,6 +47,7 @@
 - Repo strategy: Option A (Farfield fork + `apps/mobile`) vs Option B (separate mobile repo)
 - Exact Farfield fork/branch to target
 - Final SSE client library for React Native
+- Farfield approval API shape for pending approvals + approve/deny actions
 - Any additional remote-mode hardening (rate limiting, health endpoint auth)
 
 ## Constraints and Guardrails
@@ -59,6 +61,7 @@
 ## Risks and Watch Items
 
 - Farfield API changes may break the mobile client contract.
+- Farfield currently lacks approval prompt UI/API coverage for command/file/apply-patch approvals.
 - React Native SSE libraries may have platform quirks.
 - Metro bundling may resist shared protocol package reuse.
 - Security mistakes in remote mode could expose sensitive debug/history endpoints.
@@ -66,6 +69,7 @@
 ## Issues / Deferred Work
 
 - No `ISSUES.md` yet.
+- Do not defer approval prompt support (command/file/apply-patch) beyond MVP if the app is intended for real remote Codex use.
 - Defer nice-to-have features until MVP phases complete (model selection, push notifications, advanced debug tooling).
 
 ## Session Continuity
@@ -78,8 +82,11 @@
 
 - 2026-02-26: `/gsd:new-project` initialized `.planning/PROJECT.md` and `.planning/config.json` (`705f1f1`).
 - 2026-02-26: `/gsd:create-roadmap` created `ROADMAP.md`, `STATE.md`, and phase directories.
+- 2026-02-26: Planning docs updated after deleting standalone plan file; `.planning/PROJECT.md` remains canonical and approval prompt support was marked MVP-blocking.
+- 2026-02-26: `/gsd:create-roadmap` replace run regenerated `ROADMAP.md`/`STATE.md` from the updated `.planning/PROJECT.md` and restored phase directories.
 
 ## Notes for Future Commands
 
 - Source brief phase numbering (0-8) was remapped to GSD phase numbering (01-09).
 - Use `.planning/PROJECT.md` as canonical project brief.
+- Standalone `FARFIELD_EXPO_MOBILE_APP_PLAN.md` was deleted; use `.planning/PROJECT.md` in new sessions.

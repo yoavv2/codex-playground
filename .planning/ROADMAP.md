@@ -9,6 +9,7 @@ Workflow Mode: yolo
 - This roadmap renumbers the source brief's phases (0-8) into GSD phases (01-09).
 - Security hardening is front-loaded before real remote mobile usage.
 - Preferred repo strategy is Option A (Farfield fork + `apps/mobile`), to be confirmed in Phase 01.
+- Codex approval prompt support (command/file/apply-patch) is treated as MVP-blocking for remote usability.
 
 ## Milestones
 
@@ -20,9 +21,9 @@ Phases:
 - 01 Prep and Decisions
 - 02 Harden Farfield for Remote Mobile Access
 
-### Milestone 2: Mobile MVP Can Read and Send
+### Milestone 2: Mobile MVP Can Read, Send, and Approve
 
-Goal: Ship an Expo mobile app MVP that can connect, browse threads, read conversations, send messages, and interrupt runs.
+Goal: Ship an Expo mobile app MVP that can connect, browse threads, read conversations, send messages, interrupt runs, and handle Codex approval prompts.
 
 Phases:
 - 03 Create Expo App Skeleton
@@ -46,8 +47,8 @@ Phases:
 | 01 | 0 | TODO | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
 | 02 | 1 | TODO | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
 | 03 | 2 | TODO | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
-| 04 | 3 | TODO | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs. |
-| 05 | 4 | TODO | No | MVP UI - Threads and Chat | Build thread list/detail UI with send and interrupt flows. |
+| 04 | 3 | TODO | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
+| 05 | 4 | TODO | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
 | 06 | 5 | TODO | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
 | 07 | 6 | TODO | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
 | 08 | 7 | TODO | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
@@ -69,6 +70,7 @@ Phases:
 
 1. Plan and execute Phase 01 to lock repo and transport decisions.
 2. Plan and execute Phase 02 before using the app remotely.
-3. Build the mobile app incrementally in Phases 03-05.
-4. Add resilience and advanced controls in Phases 06-07.
-5. Finish with polish and deployment readiness in Phases 08-09.
+3. Define and implement Farfield approval prompt APIs before or alongside Phases 04-05.
+4. Build the mobile app incrementally in Phases 03-05.
+5. Add resilience and advanced controls in Phases 06-07.
+6. Finish with polish and deployment readiness in Phases 08-09.
