@@ -1,0 +1,8 @@
+{
+  "workflow_mode": "yolo",
+  "workflowMode": "yolo",
+  "gates": {
+    "auto_approve_most_decisions": true,
+    "pause_for_critical_checkpoints": true
+  }
+}
