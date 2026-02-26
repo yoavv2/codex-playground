@@ -5,25 +5,25 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-26T17:24:31Z
+- Last Updated: 2026-02-26T17:44:36Z
 - Git Branch: master
 - Current Milestone: Milestone 1 - Secure Remote Foundation
-- Current Phase: 01 - Prep and Decisions
+- Current Phase: 01 - Prep and Decisions (Blocked)
 - Progress: 0 / 9 phases complete (0%)
 
 ## Current Position
 
-- Status: Ready for phase planning
-- Next Action: `/gsd:plan-phase 1`
-- Blocking Issues: none
+- Status: Phase 01 executed; blocked on local Farfield repo/fork path for downstream implementation work
+- Next Action: Provide local Farfield repo/fork path (and preferred branch) to unblock Phase 02 planning/execution
+- Blocking Issues: Missing local Farfield repository path/fork selection for target implementation repo
 - Active Plan File: none
-- Active Summary File: none
+- Active Summary File: `.planning/phases/01-prep-and-decisions/01-01-SUMMARY.md`
 
 ## Roadmap Snapshot
 
 | Phase | Name | Milestone | Status | Plan Count | Summary Count |
 | --- | --- | --- | --- | --- | --- |
-| 01 | Prep and Decisions | Milestone 1 | TODO | 0 | 0 |
+| 01 | Prep and Decisions | Milestone 1 | BLOCKED | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | TODO | 0 | 0 |
 | 03 | Create Expo App Skeleton | Milestone 2 | TODO | 0 | 0 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
@@ -39,16 +39,28 @@
 - Mobile app will communicate with Farfield via HTTP + SSE APIs.
 - Security hardening is required before real remote use.
 - Codex approval prompt support (command/file/apply-patch) is MVP-blocking for practical remote usage.
-- Preferred remote access path is Tailscale (to confirm and document in Phase 01).
+- Preferred remote access path is Tailscale; confirmed for MVP/personal use in Phase 01.
+- Repo strategy default is Option A (Farfield fork + `apps/mobile`) pending exact local fork/path confirmation.
+- Phase 02 required hardening scope is fixed: bearer token auth, `/events` auth, CORS allowlist, and debug endpoint gating.
+- SSE client package selection is intentionally deferred to Phase 03 with validation criteria.
+- Approval prompt support requires backend/protocol work before/alongside client integration (pending approvals + approve/deny actions).
 - Workflow mode is `yolo` unless overridden per command.
 
 ## Pending Decisions (Phase 01)
 
-- Repo strategy: Option A (Farfield fork + `apps/mobile`) vs Option B (separate mobile repo)
-- Exact Farfield fork/branch to target
-- Final SSE client library for React Native
-- Farfield approval API shape for pending approvals + approve/deny actions
-- Any additional remote-mode hardening (rate limiting, health endpoint auth)
+- Exact local Farfield repo/fork path and preferred branch to target for Phase 02
+
+## Deferred Decisions (Intentional)
+
+- Final React Native SSE library selection
+  - Owner phase: 03 Create Expo App Skeleton
+  - Criteria: RN compatibility, reconnect behavior, maintenance status, auth header/query support for SSE
+- Whether to require auth for `/api/health`
+  - Owner phase: 02 Harden Farfield for Remote Mobile Access
+  - Criteria: operational convenience vs remote information exposure risk
+- Whether to add remote-mode rate limiting and sensitive-log redaction in the first Phase 02 pass
+  - Owner phase: 02 Harden Farfield for Remote Mobile Access
+  - Criteria: implementation cost vs risk reduction after core auth/CORS/debug gating lands
 
 ## Constraints and Guardrails
 
@@ -62,6 +74,7 @@
 
 - Farfield API changes may break the mobile client contract.
 - Farfield currently lacks approval prompt UI/API coverage for command/file/apply-patch approvals.
+- Phase 02 work is blocked until the target Farfield repo/fork path is provided or created locally.
 - React Native SSE libraries may have platform quirks.
 - Metro bundling may resist shared protocol package reuse.
 - Security mistakes in remote mode could expose sensitive debug/history endpoints.
@@ -84,6 +97,7 @@
 - 2026-02-26: `/gsd:create-roadmap` created `ROADMAP.md`, `STATE.md`, and phase directories.
 - 2026-02-26: Planning docs updated after deleting standalone plan file; `.planning/PROJECT.md` remains canonical and approval prompt support was marked MVP-blocking.
 - 2026-02-26: `/gsd:create-roadmap` replace run regenerated `ROADMAP.md`/`STATE.md` from the updated `.planning/PROJECT.md` and restored phase directories.
+- 2026-02-26: Executed `.planning/phases/01-prep-and-decisions/01-01-PLAN.md` in `--yolo` mode; documented Phase 01 decisions and Phase 02 handoff, but recorded a blocker for missing local Farfield repo/fork path.
 
 ## Notes for Future Commands
 

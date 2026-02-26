@@ -42,17 +42,17 @@ Phases:
 
 ## Phase Breakdown
 
-| GSD Phase | Source Phase | Status | Research | Phase Name | Goal |
-| --- | --- | --- | --- | --- | --- |
-| 01 | 0 | TODO | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
-| 02 | 1 | TODO | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
-| 03 | 2 | TODO | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
-| 04 | 3 | TODO | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
-| 05 | 4 | TODO | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
-| 06 | 5 | TODO | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
-| 07 | 6 | TODO | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
-| 08 | 7 | TODO | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
-| 09 | 8 | TODO | No | Deployment and Ops (Personal Use) | Establish safe Mac runtime patterns and personal app distribution path. |
+| GSD Phase | Source Phase | Status | Plans | Summaries | Research | Phase Name | Goal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 01 | 0 | BLOCKED | 1 | 1 | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
+| 02 | 1 | TODO | 0 | 0 | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
+| 03 | 2 | TODO | 0 | 0 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
+| 04 | 3 | TODO | 0 | 0 | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
+| 05 | 4 | TODO | 0 | 0 | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
+| 06 | 5 | TODO | 0 | 0 | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
+| 07 | 6 | TODO | 0 | 0 | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
+| 08 | 7 | TODO | 0 | 0 | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
+| 09 | 8 | TODO | 0 | 0 | No | Deployment and Ops (Personal Use) | Establish safe Mac runtime patterns and personal app distribution path. |
 
 ## Phase Directories
 
