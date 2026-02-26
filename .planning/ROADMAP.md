@@ -8,7 +8,7 @@ Workflow Mode: yolo
 
 - This roadmap renumbers the source brief's phases (0-8) into GSD phases (01-09).
 - Security hardening is front-loaded before real remote mobile usage.
-- Preferred repo strategy is Option A (Farfield fork + `apps/mobile`), to be confirmed in Phase 01.
+- Preferred repo strategy is Option A (Farfield fork + `apps/mobile`), validated in Phase 01.
 - Codex approval prompt support (command/file/apply-patch) is treated as MVP-blocking for remote usability.
 
 ## Milestones
@@ -44,7 +44,7 @@ Phases:
 
 | GSD Phase | Source Phase | Status | Plans | Summaries | Research | Phase Name | Goal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 01 | 0 | BLOCKED | 1 | 1 | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
+| 01 | 0 | DONE | 1 | 1 | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
 | 02 | 1 | TODO | 0 | 0 | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
 | 03 | 2 | TODO | 0 | 0 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
 | 04 | 3 | TODO | 0 | 0 | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |

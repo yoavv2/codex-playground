@@ -20,9 +20,11 @@ Lock the key implementation decisions required to start the Farfield hardening w
 - Health endpoint auth requirement (`/api/health`) final behavior (Phase 02)
 - Remote-mode rate limiting and sensitive-log redaction in first pass vs follow-up patch (Phase 02)
 
-### Blocked on Missing Input
+### Resolved During Follow-up
 
-- Exact local Farfield repo/fork path and preferred branch for implementation
+- Farfield fork URL provided: `https://github.com/achimala/farfield`
+- Local clone created at `/Users/yoavhevroni/Documents/dev/farfield`
+- Default branch confirmed: `main`
 
 ## Confirmed Decisions
 
@@ -33,8 +35,11 @@ Lock the key implementation decisions required to start the Farfield hardening w
   - keeps backend hardening and mobile client work in one repo
   - enables easier reuse of shared protocol definitions
   - reduces version drift between API and app
-- Caveat:
-  - cannot validate monorepo fit until a local Farfield repo/fork path is available
+- Validation:
+  - monorepo layout confirmed with `apps/server`, `apps/web`, and `packages/codex-protocol`
+- Local target repo:
+  - Path: `/Users/yoavhevroni/Documents/dev/farfield`
+  - Branch: `main` (create feature branch before implementation if desired)
 
 ### Remote Transport
 
@@ -97,20 +102,8 @@ Decision criteria:
 
 ## Blockers
 
-### Blocker 1: Missing Local Farfield Repo/Fork Path
-
-Status:
-- Active
-
-What is missing:
-- local filesystem path to the Farfield repo/fork to modify
-- preferred branch (or confirmation to create one)
-
-Why it blocks:
-- Phase 02 implementation planning/execution requires inspecting actual server entrypoints, route wiring, and protocol shape
-
-What will unblock it:
-- Provide a local path (for example `/path/to/farfield`) and target branch/fork choice
+- No active blockers for Phase 02 planning.
+- Target repo is available locally at `/Users/yoavhevroni/Documents/dev/farfield` on branch `main`.
 
 ## Repo Readiness Notes (Discovery)
 
@@ -121,21 +114,51 @@ Discovery performed:
 Result:
 - no local Farfield repo/fork was found in the searched locations
 
+Follow-up discovery (after repo URL was provided):
+- cloned `https://github.com/achimala/farfield` to `/Users/yoavhevroni/Documents/dev/farfield`
+- default branch is `main`
+- repo root package name is `farfield` with Bun workspaces (`apps/*`, `packages/*`)
+- monorepo layout confirmed:
+  - `apps/server`
+  - `apps/web`
+  - `packages/codex-protocol`
+  - `packages/codex-api`
+  - `packages/opencode-api`
+- server entrypoint confirmed at `apps/server/src/index.ts`
+- route coverage confirmed in `apps/server/src/index.ts`:
+  - `GET /events`
+  - `GET /api/health`
+  - `GET /api/agents`
+  - thread routes under `/api/threads/*`
+  - `GET /api/threads/:id/live-state`
+  - `POST /api/threads/:id/user-input`
+  - debug routes under `/api/debug/*` (history/replay/trace)
+- current implementation notes:
+  - JSON responses and SSE currently use wildcard CORS (`Access-Control-Allow-Origin: *`)
+  - no bearer auth middleware is currently applied to `/api/*` or `/events`
+- protocol evidence in `packages/codex-protocol/vendor/codex-app-server-schema` includes:
+  - `ExecCommandApproval*`
+  - `FileChangeRequestApproval*`
+  - `ApplyPatchApproval*`
+  - `ToolRequestUserInput*`
+
 Validation status:
-- monorepo layout and exact server file locations could not be confirmed yet
-- Phase 02 remains blocked on repo path/fork availability
+- monorepo fit for Option A is validated at a structural level
+- Phase 02 planning is unblocked
 
 ## Phase 02 Handoff Notes
 
-When the Farfield repo path is available, Phase 02 should start with:
+Phase 02 should start with:
 
-1. Locate server entrypoint and auth/cors/debug route handling (`/api/*`, `/events`, `/api/debug/*`)
+1. Implement auth/CORS/debug gating in `apps/server/src/index.ts` (route handling location confirmed)
 2. Implement token auth middleware with local-dev fallback when no token is configured
 3. Protect `/events` with the same auth policy (query token fallback only if SSE client compatibility requires it)
 4. Add remote-mode CORS allowlist env (`FARFIELD_ALLOWED_ORIGINS`)
 5. Gate debug endpoints with `FARFIELD_ENABLE_DEBUG_API` (default disabled in remote mode)
-6. Define approval prompt API shape (pending approvals + approve/deny) if not already present in live-state/protocol
-7. Document safe Tailscale-based startup and env usage
+6. Inspect `GET /api/threads/:id/live-state` payload shape to determine whether approval prompts can ride existing live-state responses
+7. Define/implement approval prompt API shape (pending approvals + approve/deny) using existing codex protocol approval schema concepts
+8. Update `apps/server/src/http-schemas.ts` for any new request bodies
+9. Document safe Tailscale-based startup and env usage
 
 Required env vars to implement/document in Phase 02:
 - `FARFIELD_AUTH_TOKEN`
@@ -153,5 +176,5 @@ Acceptance test outline for Phase 02:
 
 ## Notes for Next Planning/Execution Commands
 
-- Phase 01 decision work is complete except for repo path/fork availability
-- Once unblocked, Phase 02 planning can proceed immediately without reopening the above decisions
+- Phase 01 decision work is complete and the repo-path blocker is resolved
+- Phase 02 planning can proceed immediately without reopening the above decisions
