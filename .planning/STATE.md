@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-27T12:31:23Z
-- Git Branch: master
+- Last Updated: 2026-02-27T19:07:56Z
+- Git Branch: main
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
 - Current Phase: 03 - Create Expo App Skeleton
-- Progress: 2 / 9 phases complete (22%)
+- Progress: 2 / 9 phases complete (22%) — Phase 03 plan 1/3 complete
 
 ## Current Position
 
-- Status: Phase 02 complete; backend approval API contract is ready for mobile client work in Phase 03/04
-- Next Action: `/gsd:plan-phase 3`
+- Status: 03-01 complete — Expo foundation scaffolded, all decisions locked in 03-CONTEXT.md. Ready for 03-02.
+- Next Action: `/gsd:execute-plan .planning/phases/03-create-expo-app-skeleton/03-02-PLAN.md`
 - Blocking Issues: none
-- Active Plan File: none
-- Active Summary File: `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-02-SUMMARY.md`
+- Active Plan File: `.planning/phases/03-create-expo-app-skeleton/03-02-PLAN.md`
+- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-01-SUMMARY.md`
 
 ## Roadmap Snapshot
 
@@ -25,7 +25,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
-| 03 | Create Expo App Skeleton | Milestone 2 | TODO | 0 | 0 |
+| 03 | Create Expo App Skeleton | Milestone 2 | IN-PROGRESS | 3 | 1 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
@@ -46,7 +46,7 @@
 - Phase 02 feature branch for hardening work is `codex/phase-02-remote-hardening`.
 - `/api/health` remains unauthenticated by default, with opt-in auth via `FARFIELD_REQUIRE_AUTH_FOR_HEALTH=true`.
 - Debug API gating defaults to disabled in remote bind mode and enabled in local bind mode unless overridden.
-- SSE client package selection is intentionally deferred to Phase 03 with validation criteria.
+- SSE client package selected in Phase 03 plan 01: **react-native-sse** — supports custom Authorization headers for `/events` auth, pure JS, managed Expo workflow compatible, active maintenance.
 - Approval prompt support requires backend/protocol work before/alongside client integration (pending approvals + approve/deny actions).
 - Approval exposure strategy is dedicated endpoints, not live-state shape extension.
 - Approval contract endpoints are:
@@ -60,9 +60,6 @@
 
 ## Deferred Decisions (Intentional)
 
-- Final React Native SSE library selection
-  - Owner phase: 03 Create Expo App Skeleton
-  - Criteria: RN compatibility, reconnect behavior, maintenance status, auth header/query support for SSE
 - Whether to add remote-mode rate limiting and sensitive-log redaction in the first Phase 02 pass
   - Owner phase: 02 Harden Farfield for Remote Mobile Access
   - Criteria: implementation cost vs risk reduction after core auth/CORS/debug gating lands
@@ -106,6 +103,11 @@
 - 2026-02-27: Moved local Farfield repo to `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`.
 - 2026-02-27: Executed `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-01-PLAN.md` in `--yolo` mode; implemented auth/CORS/debug hardening in Farfield, added tests/docs, and recorded verification outcomes in `02-CONTEXT.md`.
 - 2026-02-27: Executed `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-02-PLAN.md` in `--yolo` mode; added pending approval APIs, approval response plumbing, tests, and mobile contract docs.
+- 2026-02-27: Replanned Phase 03 into three execution plans:
+  - `03-01-PLAN.md` foundation + decision lock
+  - `03-02-PLAN.md` navigation shell and screen skeletons
+  - `03-03-PLAN.md` persisted connection settings + `/api/health` check + docs handoff
+- 2026-02-27: Executed `03-01-PLAN.md` — scaffolded `farfield/apps/mobile` as Expo SDK 53 + Expo Router workspace package; locked SSE library as `react-native-sse`; typecheck and lint pass; Metro starts in offline mode (`936330d`, `272ff65`).
 
 ## Notes for Future Commands
 
