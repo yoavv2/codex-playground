@@ -5,26 +5,26 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-27T11:45:34Z
+- Last Updated: 2026-02-27T12:31:23Z
 - Git Branch: master
-- Current Milestone: Milestone 1 - Secure Remote Foundation
-- Current Phase: 02 - Harden Farfield for Remote Mobile Access
-- Progress: 1 / 9 phases complete (11%)
+- Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
+- Current Phase: 03 - Create Expo App Skeleton
+- Progress: 2 / 9 phases complete (22%)
 
 ## Current Position
 
-- Status: Phase 02 in progress; 02-01 security baseline complete and 02-02 approval API work remains
-- Next Action: `/gsd:execute-plan .planning/phases/02-harden-farfield-for-remote-mobile-access/02-02-PLAN.md`
+- Status: Phase 02 complete; backend approval API contract is ready for mobile client work in Phase 03/04
+- Next Action: `/gsd:plan-phase 3`
 - Blocking Issues: none
 - Active Plan File: none
-- Active Summary File: `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-01-SUMMARY.md`
+- Active Summary File: `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-02-SUMMARY.md`
 
 ## Roadmap Snapshot
 
 | Phase | Name | Milestone | Status | Plan Count | Summary Count |
 | --- | --- | --- | --- | --- | --- |
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
-| 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | IN_PROGRESS | 2 | 1 |
+| 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
 | 03 | Create Expo App Skeleton | Milestone 2 | TODO | 0 | 0 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
@@ -41,18 +41,22 @@
 - Codex approval prompt support (command/file/apply-patch) is MVP-blocking for practical remote usage.
 - Preferred remote access path is Tailscale; confirmed for MVP/personal use in Phase 01.
 - Repo strategy is Option A (Farfield fork + `apps/mobile`).
-- Local Farfield target repo is `/Users/yoavhevroni/Documents/dev/farfield` on branch `main`.
+- Local Farfield target repo is `/Users/yoavhevroni/Documents/dev/codex-playground/farfield` on branch `codex/phase-02-remote-hardening`.
 - Phase 02 required hardening scope is fixed: bearer token auth, `/events` auth, CORS allowlist, and debug endpoint gating.
 - Phase 02 feature branch for hardening work is `codex/phase-02-remote-hardening`.
 - `/api/health` remains unauthenticated by default, with opt-in auth via `FARFIELD_REQUIRE_AUTH_FOR_HEALTH=true`.
 - Debug API gating defaults to disabled in remote bind mode and enabled in local bind mode unless overridden.
 - SSE client package selection is intentionally deferred to Phase 03 with validation criteria.
 - Approval prompt support requires backend/protocol work before/alongside client integration (pending approvals + approve/deny actions).
+- Approval exposure strategy is dedicated endpoints, not live-state shape extension.
+- Approval contract endpoints are:
+  - `GET /api/threads/:id/pending-approvals`
+  - `POST /api/threads/:id/pending-approvals/respond`
 - Workflow mode is `yolo` unless overridden per command.
 
-## Pending Decisions (Phase 02)
+## Pending Decisions (Current)
 
-- Approval prompt exposure strategy: extend `GET /api/threads/:id/live-state` vs add dedicated pending-approval endpoint(s)
+- None blocking current phase start.
 
 ## Deferred Decisions (Intentional)
 
@@ -74,7 +78,7 @@
 ## Risks and Watch Items
 
 - Farfield API changes may break the mobile client contract.
-- Farfield currently lacks approval prompt UI/API coverage for command/file/apply-patch approvals.
+- Mobile client UI integration for pending approvals is not yet implemented (planned for Phase 04).
 - React Native SSE libraries may have platform quirks.
 - Metro bundling may resist shared protocol package reuse.
 - Security mistakes in remote mode could expose sensitive debug/history endpoints.
@@ -99,12 +103,14 @@
 - 2026-02-26: `/gsd:create-roadmap` replace run regenerated `ROADMAP.md`/`STATE.md` from the updated `.planning/PROJECT.md` and restored phase directories.
 - 2026-02-26: Executed `.planning/phases/01-prep-and-decisions/01-01-PLAN.md` in `--yolo` mode; documented Phase 01 decisions and Phase 02 handoff, but recorded a blocker for missing local Farfield repo/fork path.
 - 2026-02-26: Cloned `https://github.com/achimala/farfield` to `/Users/yoavhevroni/Documents/dev/farfield` (`main`), validated server/protocol layout, and resolved the Phase 01 blocker.
+- 2026-02-27: Moved local Farfield repo to `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`.
 - 2026-02-27: Executed `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-01-PLAN.md` in `--yolo` mode; implemented auth/CORS/debug hardening in Farfield, added tests/docs, and recorded verification outcomes in `02-CONTEXT.md`.
+- 2026-02-27: Executed `.planning/phases/02-harden-farfield-for-remote-mobile-access/02-02-PLAN.md` in `--yolo` mode; added pending approval APIs, approval response plumbing, tests, and mobile contract docs.
 
 ## Notes for Future Commands
 
 - Source brief phase numbering (0-8) was remapped to GSD phase numbering (01-09).
 - Use `.planning/PROJECT.md` as canonical project brief.
 - Standalone `FARFIELD_EXPO_MOBILE_APP_PLAN.md` was deleted; use `.planning/PROJECT.md` in new sessions.
-- Farfield implementation target for Phase 02+: `/Users/yoavhevroni/Documents/dev/farfield` (branch `main` unless a feature branch is created).
-- Active Farfield hardening branch: `codex/phase-02-remote-hardening`.
+- Farfield implementation target for Phase 03+: `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`.
+- Active Farfield branch: `codex/phase-02-remote-hardening`.

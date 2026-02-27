@@ -9,7 +9,7 @@ Harden the Farfield server for safe remote mobile use before building the mobile
 
 ## Target Repo
 
-- Repo: `/Users/yoavhevroni/Documents/dev/farfield`
+- Repo: `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`
 - Remote: `https://github.com/achimala/farfield`
 - Working branch for `02-01`: `codex/phase-02-remote-hardening`
 
@@ -22,7 +22,7 @@ Harden the Farfield server for safe remote mobile use before building the mobile
 
 ## Phase 02 Plan Split
 
-### 02-01 Scope (current execution)
+### 02-01 Scope (completed)
 
 - Token auth for protected routes when configured
 - `/events` auth protection
@@ -30,7 +30,7 @@ Harden the Farfield server for safe remote mobile use before building the mobile
 - Debug API gating for remote use
 - README updates and curl verification steps
 
-### 02-02 Scope (next)
+### 02-02 Scope (completed)
 
 - Pending approvals read path
 - Approve/deny actions
@@ -92,7 +92,7 @@ Implemented in Farfield repo on `codex/phase-02-remote-hardening`:
 
 ### Checkpoint A: Focused checks
 
-Commands run in `/Users/yoavhevroni/Documents/dev/farfield`:
+Commands run in `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`:
 
 1. `bun run --filter @farfield/protocol build` ✅
 2. `bun run --filter @farfield/api build` ✅
@@ -127,8 +127,111 @@ Local-dev usability check:
 Cleanup:
 - Temporary verification servers on `4411` and `4412` were stopped after checks.
 
-## Open Items For 02-02
+## 02-02 Discovery Findings
 
-- Whether approval prompts are already visible in reduced `conversationState` from `live-state`
-- Whether pending approvals should be exposed through `live-state` or a dedicated endpoint
-- Whether new codex-api service methods are needed for approve/deny actions
+### Capability inventory (from code + schema inspection)
+
+| Area | Available | Missing / Gap | Action Taken |
+| --- | --- | --- | --- |
+| `conversationState.requests` typing | `item/tool/requestUserInput` | approval request methods were not represented in `packages/codex-protocol/src/thread.ts` | Added strict request schemas for command/file/legacy apply-patch + request union |
+| Approval response typing | only `ToolRequestUserInputResponse` parser | no typed parser for approval responses | Added strict response schemas + `parseThreadRequestResponsePayload` |
+| `codex-api` service | `submitUserInput` via `thread-follower-submit-user-input` | no explicit generic request-response method | Added `submitThreadRequestResponse` and kept `submitUserInput` as typed wrapper |
+| Server HTTP API | `GET /api/threads/:id/live-state`, `POST /api/threads/:id/user-input` | no approval read/action routes | Added dedicated pending approvals read/respond routes |
+
+### Decision checkpoint outcome
+
+- Chosen strategy: **dedicated endpoints** instead of extending `live-state` payload.
+- Rationale:
+  - avoids coupling approval contract to full `conversationState` response evolution
+  - gives a mobile-specific, normalized payload for polling and rendering
+  - minimizes risk for existing `live-state` consumers
+
+## 02-02 API Contract (for Phase 04 mobile client)
+
+### Read pending approvals
+
+- Route: `GET /api/threads/:id/pending-approvals`
+- Auth: same Phase 02 auth gate as other `/api/*` routes
+- Response shape:
+  - `pendingApprovals[]` entries include:
+    - `requestId`
+    - `requestMethod`
+    - `type` (`command` | `file-change` | `apply-patch`)
+    - `status` (`pending`)
+    - `threadId`, `turnId`, `itemId`, `approvalId`
+    - `summary`
+    - `detail` (stringified fields needed for UI)
+
+### Submit approval decision
+
+- Route: `POST /api/threads/:id/pending-approvals/respond`
+- Body:
+  - `requestId: number`
+  - `decision: "approve" | "deny"`
+  - optional `ownerClientId`
+- Mapping semantics:
+  - command/file request methods -> `accept`/`decline`
+  - legacy exec/apply-patch methods -> `approved`/`denied`
+- Error semantics:
+  - `404` when request id is not currently pending for thread
+  - `401` when auth token is missing/invalid
+  - `500` for downstream transport or handler failures
+
+## 02-02 Implementation Notes
+
+Implemented in `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`:
+
+- Added server approval helper module:
+  - `apps/server/src/approvals.ts`
+- Updated server routes:
+  - `apps/server/src/index.ts`
+  - added `GET /api/threads/:id/pending-approvals`
+  - added `POST /api/threads/:id/pending-approvals/respond`
+- Added strict schema for approval route body:
+  - `apps/server/src/http-schemas.ts`
+- Added generic request-response plumbing:
+  - `apps/server/src/agents/types.ts`
+  - `apps/server/src/agents/adapters/codex-agent.ts`
+  - `packages/codex-api/src/service.ts`
+- Extended protocol thread/request parsing:
+  - `packages/codex-protocol/src/thread.ts`
+- Added/updated tests:
+  - `apps/server/test/approvals.test.ts`
+  - `apps/server/test/http-schemas.test.ts`
+  - `packages/codex-api/test/service.test.ts`
+  - `packages/codex-protocol/test/protocol.test.ts`
+- Updated docs:
+  - `README.md` approval API verification commands
+
+## Verification Results (02-02)
+
+### Checkpoint A: Focused package checks
+
+Run in `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`:
+
+1. `bun run --filter @farfield/protocol build` ✅
+2. `bun run --filter @farfield/api build` ✅
+3. `bun run --filter @farfield/protocol test` ✅
+4. `bun run --filter @farfield/api test` ✅
+5. `bun run --filter @farfield/server test` ✅
+6. `bun run --filter @farfield/protocol typecheck` ✅
+7. `bun run --filter @farfield/api typecheck` ✅
+8. `bun run --filter @farfield/server typecheck` ✅
+9. `bun run --filter @farfield/server lint` ✅
+
+### Checkpoint B: Manual API checks
+
+Remote-secured local run:
+- `HOST=127.0.0.1 PORT=4411 FARFIELD_AUTH_TOKEN=phase02token FARFIELD_ENABLE_DEBUG_API=false bun run --filter @farfield/server dev -- --agents=codex`
+
+Observed:
+- `GET /api/threads/:id/pending-approvals` without auth -> `401` ✅
+- `GET /api/threads/:id/pending-approvals` with auth and unknown thread -> `404` ✅
+- `GET /api/threads/:id/pending-approvals` with auth on created thread -> `200` with `pendingApprovals: []` ✅
+- `POST /api/threads/:id/pending-approvals/respond` without auth -> `401` ✅
+- `POST /api/threads/:id/pending-approvals/respond` with missing request id -> `404` ✅
+
+## Known Limitations for Phase 04
+
+- Decision mapping is implemented and typed, but this run did not produce a live approval prompt from Codex, so approve-path success against a real pending request remains to be validated during mobile integration.
+- `detail` fields intentionally preserve some complex structures as JSON strings for transport stability; Phase 04 UI can parse selected fields for richer rendering.
