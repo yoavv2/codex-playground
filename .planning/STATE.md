@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-27T19:07:56Z
+- Last Updated: 2026-02-27T19:13:52Z
 - Git Branch: main
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
 - Current Phase: 03 - Create Expo App Skeleton
-- Progress: 2 / 9 phases complete (22%) — Phase 03 plan 1/3 complete
+- Progress: 2 / 9 phases complete (22%) — Phase 03 plan 2/3 complete
 
 ## Current Position
 
-- Status: 03-01 complete — Expo foundation scaffolded, all decisions locked in 03-CONTEXT.md. Ready for 03-02.
-- Next Action: `/gsd:execute-plan .planning/phases/03-create-expo-app-skeleton/03-02-PLAN.md`
+- Status: 03-02 complete — Navigation shell built with tab navigator (Connection/Threads/Settings) and Thread Detail screen; all screens reachable, typecheck/lint/Metro pass.
+- Next Action: `/gsd:execute-plan .planning/phases/03-create-expo-app-skeleton/03-03-PLAN.md`
 - Blocking Issues: none
-- Active Plan File: `.planning/phases/03-create-expo-app-skeleton/03-02-PLAN.md`
-- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-01-SUMMARY.md`
+- Active Plan File: `.planning/phases/03-create-expo-app-skeleton/03-03-PLAN.md`
+- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-02-SUMMARY.md`
 
 ## Roadmap Snapshot
 
@@ -25,7 +25,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
-| 03 | Create Expo App Skeleton | Milestone 2 | IN-PROGRESS | 3 | 1 |
+| 03 | Create Expo App Skeleton | Milestone 2 | IN-PROGRESS | 3 | 2 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
@@ -53,6 +53,9 @@
   - `GET /api/threads/:id/pending-approvals`
   - `POST /api/threads/:id/pending-approvals/respond`
 - Workflow mode is `yolo` unless overridden per command.
+- Tab navigator chosen over drawer for Phase 03 screens: three-item set (Connection, Threads, Settings) maps to tab bar; no drawer indirection needed.
+- Thread detail route lives outside (tabs) group as a Stack screen for full-screen push navigation from Threads tab.
+- `router.push` with template literal used for thread navigation; Expo Router 4 typedRoutes experiment validates at compile time.
 
 ## Pending Decisions (Current)
 
@@ -108,6 +111,7 @@
   - `03-02-PLAN.md` navigation shell and screen skeletons
   - `03-03-PLAN.md` persisted connection settings + `/api/health` check + docs handoff
 - 2026-02-27: Executed `03-01-PLAN.md` — scaffolded `farfield/apps/mobile` as Expo SDK 53 + Expo Router workspace package; locked SSE library as `react-native-sse`; typecheck and lint pass; Metro starts in offline mode (`936330d`, `272ff65`).
+- 2026-02-27: Executed `03-02-PLAN.md` — built Expo Router tab navigator (Connection/Threads/Settings) with Thread Detail stack screen; all four Phase 03 screens reachable; typecheck/lint/Metro all pass (`a3e9637`, `2c6fed9`).
 
 ## Notes for Future Commands
 
