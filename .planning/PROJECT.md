@@ -40,6 +40,7 @@ Minimum hardening for MVP:
 - Read thread conversation
 - Send message to thread
 - Interrupt thread
+- View and respond to Codex approval prompts (command, file-change, apply-patch)
 - Switch collaboration mode (`default` / `plan`)
 - Live updates (SSE with reconnect)
 - Basic thread refresh and pull-to-refresh
@@ -47,7 +48,7 @@ Minimum hardening for MVP:
 ### Nice to Have (Post-MVP)
 
 - Model selection / model list
-- Pending user-input prompts UI
+- Plan-mode `request_user_input` prompts UI
 - Stream-events debug screen
 - Trace/replay tools (likely admin-only)
 - Push notifications
@@ -201,6 +202,7 @@ Suggested packages:
 - `GET /api/threads/:threadId`
 - `POST /api/threads/:threadId/messages`
 - `POST /api/threads/:threadId/interrupt`
+- New Farfield endpoints for pending approvals + approval decisions (to add)
 - `GET /api/collaboration-modes`
 - `POST /api/threads/:threadId/collaboration-mode`
 - `GET /events` (SSE)
@@ -249,6 +251,8 @@ Use runtime validation with `zod` for responses:
 - Loading and send state
 - Manual refresh
 - Interrupt button
+- Pending approvals section (sticky/visible when Codex is waiting)
+- Approve/deny actions for command, file-change, and apply-patch prompts
 
 ### Basic rendering strategy
 
@@ -267,6 +271,7 @@ Later:
 - Can open a thread and read content
 - Can send a message from phone and see it arrive in Codex/Farfield
 - Can interrupt a running thread
+- Can see when Codex is awaiting approval and respond from the phone
 
 ## Phase 5: Live Updates (SSE) and Reconnect Behavior
 
@@ -308,7 +313,11 @@ This is simpler and more reliable than reconstructing all state from events on m
 - Apply mode (`POST /api/threads/:id/collaboration-mode`)
 - Show current mode in thread header
 
-### Pending user-input requests (MVP+)
+### Pending tool `request_user_input` prompts (Post-MVP unless required)
+
+Note:
+
+- Command/file/apply-patch approval prompts are MVP-blocking and handled earlier in Phase 4.
 
 - Read thread live state (`GET /api/threads/:id/live-state`)
 - Render pending user input prompts if present
@@ -497,17 +506,18 @@ Result:
 
 - Mobile-ready backend surface
 
-## Milestone 2: Mobile MVP Can Read and Send
+## Milestone 2: Mobile MVP Can Read, Send, and Approve
 
 - Expo app scaffold
 - Connection settings
 - Threads list
 - Thread detail
 - Send message / interrupt
+- Approval prompt UI + actions (command/file/apply-patch)
 
 Result:
 
-- Usable remote Codex controller
+- Usable remote Codex controller for approval-gated workflows
 
 ## Milestone 3: Live Sync + Modes
 
@@ -541,30 +551,35 @@ Result:
 - iPhone on same network / Tailscale connects
 - message sent from phone appears in Codex
 - interrupt works
+- approval prompt appears in app and can be approved/denied remotely
 - reconnect after Wi-Fi toggle works
 
 ## Suggested Build Order for Next Session
 
 1. Fork Farfield and add backend auth + debug gating
 2. Verify remote access over Tailscale with curl
-3. Scaffold Expo app (`apps/mobile`)
-4. Build connection screen + typed client
-5. Implement threads list + thread detail
-6. Implement send + interrupt
-7. Add SSE live refresh
-8. Polish and test on iPhone + Android
+3. Define Farfield approval prompt API shape (pending approvals + approve/deny)
+4. Scaffold Expo app (`apps/mobile`)
+5. Build connection screen + typed client (including approval endpoints)
+6. Implement threads list + thread detail + approval UI
+7. Implement send + interrupt
+8. Add SSE live refresh
+9. Polish and test on iPhone + Android
 
 ## New Session Kickoff Prompt (Copy/Paste)
 
 ```md
 We are building a React Native app with Expo (iPhone + Android) that remotely controls Codex on my Mac through Farfield.
 
-Please follow the plan in `/Users/yoavhevroni/Documents/dev/codex-playground/FARFIELD_EXPO_MOBILE_APP_PLAN.md`.
+Please follow the plan in `/Users/yoavhevroni/Documents/dev/codex-playground/.planning/PROJECT.md`.
 
 Start with Milestone 1:
 - harden Farfield for remote use (Bearer token auth, `/events` auth, debug endpoint gating, CORS allowlist)
 - keep current local behavior working when no token is configured
 - add docs for safe Tailscale-based remote usage
+
+Important MVP requirement:
+- add support for Codex approval prompts (command/file/apply-patch) so remote usage is not blocked when Codex asks for approval
 
 Then verify with curl commands.
 ```
@@ -573,5 +588,5 @@ Then verify with curl commands.
 
 - Farfield backend and web can run locally and connect to Codex successfully on this Mac.
 - Current Farfield remote mode is unauthenticated by design; do not expose it publicly.
+- Farfield currently does not surface Codex command/file/apply-patch approval prompts; protocol support exists, and this is MVP-blocking for remote use.
 - `bun` version on this machine was `1.1.36`, which caused recursive workspace build issues with `bun run build`; targeted per-package builds worked.
-
