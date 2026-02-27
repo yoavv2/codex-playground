@@ -45,7 +45,7 @@ Phases:
 | GSD Phase | Source Phase | Status | Plans | Summaries | Research | Phase Name | Goal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 01 | 0 | DONE | 1 | 1 | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
-| 02 | 1 | TODO | 0 | 0 | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
+| 02 | 1 | IN_PROGRESS | 2 | 1 | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, and debug gating for safe remote use. |
 | 03 | 2 | TODO | 0 | 0 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
 | 04 | 3 | TODO | 0 | 0 | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
 | 05 | 4 | TODO | 0 | 0 | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
