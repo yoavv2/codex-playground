@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "expo-router";
 
 import { loadSettings } from "@/src/settings";
+import { checkHealth } from "@/src/api/health";
 
 type HealthStatus = "unknown" | "checking" | "ok" | "error";
 
@@ -12,20 +19,23 @@ type HealthStatus = "unknown" | "checking" | "ok" | "error";
  *
  * Shows the currently saved server URL and auth token presence,
  * hydrating from persisted settings on every focus (so that changes
- * made in Settings tab are immediately reflected here).
+ * made in the Settings tab are immediately reflected here).
  *
- * Phase 03-03 health-check action is implemented below.
- * Phase 04 will wire: live connection status via TanStack Query.
+ * Provides a "Test Connection" button that calls GET /api/health and
+ * displays success/failure feedback suitable for setup debugging.
+ *
+ * Phase 04 will wire: live thread data via TanStack Query.
  */
 export default function ConnectionScreen() {
   const [serverUrl, setServerUrl] = useState<string>("");
+  const [authToken, setAuthToken] = useState<string>("");
   const [hasToken, setHasToken] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState<HealthStatus>("unknown");
   const [healthMessage, setHealthMessage] = useState<string>("");
 
   // Hydrate from persisted storage every time the screen gains focus.
-  // This ensures values updated in Settings are reflected here immediately.
+  // This ensures values updated in the Settings tab are reflected here immediately.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -33,6 +43,7 @@ export default function ConnectionScreen() {
         const settings = await loadSettings();
         if (!cancelled) {
           setServerUrl(settings.serverUrl);
+          setAuthToken(settings.authToken);
           setHasToken(Boolean(settings.authToken));
           // Reset health status when settings change
           setHealthStatus("unknown");
@@ -45,6 +56,16 @@ export default function ConnectionScreen() {
       };
     }, [])
   );
+
+  const handleTestConnection = useCallback(async () => {
+    setHealthStatus("checking");
+    setHealthMessage("Contacting server...");
+
+    const result = await checkHealth(serverUrl, authToken || undefined);
+
+    setHealthStatus(result.ok ? "ok" : "error");
+    setHealthMessage(result.message);
+  }, [serverUrl, authToken]);
 
   const isConfigured = Boolean(serverUrl);
 
@@ -103,16 +124,36 @@ export default function ConnectionScreen() {
             styles.healthMessageBox,
             healthStatus === "ok"
               ? styles.healthMessageOk
-              : styles.healthMessageError,
+              : healthStatus === "error"
+                ? styles.healthMessageError
+                : styles.healthMessageChecking,
           ]}
         >
           <Text style={styles.healthMessageText}>{healthMessage}</Text>
         </View>
       ) : null}
 
+      <TouchableOpacity
+        style={[
+          styles.testButton,
+          (!isConfigured || healthStatus === "checking") &&
+            styles.testButtonDisabled,
+        ]}
+        onPress={handleTestConnection}
+        disabled={!isConfigured || healthStatus === "checking"}
+        activeOpacity={0.7}
+      >
+        {healthStatus === "checking" ? (
+          <ActivityIndicator color="#007AFF" size="small" />
+        ) : (
+          <Text style={styles.testButtonText}>Test Connection</Text>
+        )}
+      </TouchableOpacity>
+
       {!isConfigured && (
         <Text style={styles.hint}>
-          Configure your server URL and auth token in the Settings tab.
+          Configure your server URL in the Settings tab, then use "Test
+          Connection" to verify the server is reachable.
         </Text>
       )}
 
@@ -197,10 +238,32 @@ const styles = StyleSheet.create({
   healthMessageError: {
     backgroundColor: "#F8D7DA",
   },
+  healthMessageChecking: {
+    backgroundColor: "#FFF3CD",
+  },
   healthMessageText: {
     fontSize: 14,
     color: "#1C1C1E",
     lineHeight: 20,
+  },
+  testButton: {
+    borderColor: "#007AFF",
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 16,
+    minHeight: 50,
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  testButtonDisabled: {
+    borderColor: "#C7C7CC",
+  },
+  testButtonText: {
+    color: "#007AFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   hint: {
     fontSize: 14,
