@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Farfield Mobile",
+    "slug": "farfield-mobile",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "farfield",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.farfield.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.farfield.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

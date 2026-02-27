@@ -15,3 +15,8 @@ worker.js
 
 # Runtime logs
 *.log
+
+# Mobile (Expo) artifacts
+.expo
+apps/mobile/.expo
+apps/mobile/expo-env.d.ts
