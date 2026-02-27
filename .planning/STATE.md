@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-27T19:13:52Z
+- Last Updated: 2026-02-27T19:25:00Z
 - Git Branch: main
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
-- Current Phase: 03 - Create Expo App Skeleton
-- Progress: 2 / 9 phases complete (22%) — Phase 03 plan 2/3 complete
+- Current Phase: 04 - Build Typed Mobile API Client
+- Progress: 3 / 9 phases complete (33%) — Phase 03 complete
 
 ## Current Position
 
-- Status: 03-02 complete — Navigation shell built with tab navigator (Connection/Threads/Settings) and Thread Detail screen; all screens reachable, typecheck/lint/Metro pass.
-- Next Action: `/gsd:execute-plan .planning/phases/03-create-expo-app-skeleton/03-03-PLAN.md`
+- Status: 03-03 complete — Phase 03 fully done; typed connection settings, SecureStore/AsyncStorage persistence, Settings screen with input fields, Connection screen with /api/health test action and color-coded status feedback; typecheck/lint/Metro all pass.
+- Next Action: `/gsd:plan-phase .planning/phases/04-build-typed-mobile-api-client/`
 - Blocking Issues: none
-- Active Plan File: `.planning/phases/03-create-expo-app-skeleton/03-03-PLAN.md`
-- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-02-SUMMARY.md`
+- Active Plan File: none (Phase 03 complete; Phase 04 not yet planned)
+- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-03-SUMMARY.md`
 
 ## Roadmap Snapshot
 
@@ -25,7 +25,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
-| 03 | Create Expo App Skeleton | Milestone 2 | IN-PROGRESS | 3 | 2 |
+| 03 | Create Expo App Skeleton | Milestone 2 | DONE | 3 | 3 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
@@ -56,10 +56,14 @@
 - Tab navigator chosen over drawer for Phase 03 screens: three-item set (Connection, Threads, Settings) maps to tab bar; no drawer indirection needed.
 - Thread detail route lives outside (tabs) group as a Stack screen for full-screen push navigation from Threads tab.
 - `router.push` with template literal used for thread navigation; Expo Router 4 typedRoutes experiment validates at compile time.
+- Split storage pattern: authToken stored in expo-secure-store (device-encrypted), non-secrets (serverUrl, profileLabel) in AsyncStorage.
+- `@react-native-async-storage/async-storage` v3 API uses `removeMany` (not `multiRemove`).
+- `checkHealth()` passes auth token as Bearer header to support opt-in FARFIELD_REQUIRE_AUTH_FOR_HEALTH on the server side.
+- `useFocusEffect` used for Connection screen hydration so Settings tab changes are immediately reflected without global state management.
 
 ## Pending Decisions (Current)
 
-- None blocking current phase start.
+- None blocking Phase 04 start.
 
 ## Deferred Decisions (Intentional)
 
@@ -80,7 +84,7 @@
 - Farfield API changes may break the mobile client contract.
 - Mobile client UI integration for pending approvals is not yet implemented (planned for Phase 04).
 - React Native SSE libraries may have platform quirks.
-- Metro bundling may resist shared protocol package reuse.
+- Metro bundling may resist shared protocol package reuse — add `watchFolders` to `metro.config.js` when adding `@farfield/protocol` as a dep in Phase 04.
 - Security mistakes in remote mode could expose sensitive debug/history endpoints.
 
 ## Issues / Deferred Work
@@ -112,6 +116,7 @@
   - `03-03-PLAN.md` persisted connection settings + `/api/health` check + docs handoff
 - 2026-02-27: Executed `03-01-PLAN.md` — scaffolded `farfield/apps/mobile` as Expo SDK 53 + Expo Router workspace package; locked SSE library as `react-native-sse`; typecheck and lint pass; Metro starts in offline mode (`936330d`, `272ff65`).
 - 2026-02-27: Executed `03-02-PLAN.md` — built Expo Router tab navigator (Connection/Threads/Settings) with Thread Detail stack screen; all four Phase 03 screens reachable; typecheck/lint/Metro all pass (`a3e9637`, `2c6fed9`).
+- 2026-02-27: Executed `03-03-PLAN.md` — typed ConnectionSettings model, SecureStore/AsyncStorage persistence, Settings screen with TextInput fields and save feedback, Connection screen with /api/health Test Connection button and color-coded status; typecheck/lint/Metro all pass (`ea5a369`, `200a365`, `c4e4bfb`). Phase 03 complete.
 
 ## Notes for Future Commands
 
@@ -120,3 +125,4 @@
 - Standalone `FARFIELD_EXPO_MOBILE_APP_PLAN.md` was deleted; use `.planning/PROJECT.md` in new sessions.
 - Farfield implementation target for Phase 03+: `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`.
 - Active Farfield branch: `codex/phase-02-remote-hardening`.
+- Phase 04 entry point: `src/settings/loadSettings()` provides serverUrl+authToken; `src/api/` is the module home for API functions; thread screen skeletons have Phase 04 integration annotations.

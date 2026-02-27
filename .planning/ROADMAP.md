@@ -10,6 +10,7 @@ Workflow Mode: yolo
 - Security hardening is front-loaded before real remote mobile usage.
 - Preferred repo strategy is Option A (Farfield fork + `apps/mobile`), validated in Phase 01.
 - Codex approval prompt support (command/file/apply-patch) is treated as MVP-blocking for remote usability.
+- Phase 03 execution is intentionally split into three smaller plans (`03-01`, `03-02`, `03-03`) to reduce delivery risk.
 
 ## Milestones
 
@@ -46,7 +47,7 @@ Phases:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 01 | 0 | DONE | 1 | 1 | No | Prep and Decisions | Lock repo strategy, transport path, and implementation defaults before code changes. |
 | 02 | 1 | DONE | 2 | 2 | No | Harden Farfield for Remote Mobile Access | Add auth, CORS tightening, debug gating, and approval API exposure for safe remote use. |
-| 03 | 2 | TODO | 0 | 0 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
+| 03 | 2 | DONE | 3 | 3 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
 | 04 | 3 | TODO | 0 | 0 | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
 | 05 | 4 | TODO | 0 | 0 | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
 | 06 | 5 | TODO | 0 | 0 | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |

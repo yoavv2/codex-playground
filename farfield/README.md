@@ -131,6 +131,56 @@ curl -i \
   http://127.0.0.1:4311/api/threads/<thread-id>/pending-approvals/respond
 ```
 
+## Mobile App (Expo)
+
+The `apps/mobile` workspace package (`@farfield/mobile`) is an Expo SDK 53 + TypeScript app that lets you monitor and control Codex from your phone over Tailscale.
+
+### Mobile Prerequisites
+
+- Bun 1.2+ (workspace manager)
+- Expo Go or a physical device / simulator for testing
+
+### Mobile Workspace Commands
+
+Run from `farfield/`:
+
+```bash
+# Install all workspace dependencies (including mobile)
+bun install
+
+# Type-check the mobile package
+bun run --filter @farfield/mobile typecheck
+
+# Lint the mobile package
+bun run --filter @farfield/mobile lint
+
+# Start the Metro bundler (for Expo Go or simulator)
+bun run --filter @farfield/mobile start
+```
+
+Or run from `farfield/apps/mobile/` directly:
+
+```bash
+bun run start          # Start Metro / Expo Dev Server
+bun run ios            # Build and run on iOS Simulator
+bun run android        # Build and run on Android Emulator
+bun run typecheck      # TypeScript check
+bun run lint           # Lint
+```
+
+### Mobile Setup (Connection Screen)
+
+1. Start Farfield on your Mac in remote mode (see **Remote Security** section below).
+2. Open the app on your phone.
+3. Go to the **Settings** tab.
+4. Enter your Mac's **Tailscale IP and port** as the Server URL (e.g. `http://100.x.x.x:4311`).
+5. Paste your `FARFIELD_AUTH_TOKEN` in the Auth Token field.
+6. Tap **Save Settings**.
+7. Go to the **Connection** tab and tap **Test Connection** to verify reachability.
+
+> The auth token is stored in device-encrypted secure storage (`expo-secure-store`).
+> The server URL is stored in `AsyncStorage`.
+
 ## Requirements
 
 - Node.js 20+
