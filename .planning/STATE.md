@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-03-04T18:09:24Z
-- Git Branch: main
+- Last Updated: 2026-03-04T18:23:00Z
+- Git Branch: codex/04-build-typed-mobile-api-client
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
 - Current Phase: 04 - Build Typed Mobile API Client
-- Progress: 3 / 9 phases complete (33%) — Phase 03 complete
+- Progress: 3 / 9 phases complete (33%) — Phase 04 plans 01-03 complete, Phase 04 complete
 
 ## Current Position
 
-- Status: 04-01 complete — fetchJson() authenticated transport, typed FarfieldClientError hierarchy, QueryClientProvider at app root, centralized queryKeys factory, Metro workspace config for @farfield/protocol; typecheck/lint/Metro all pass.
-- Next Action: Execute next plan in Phase 04 (endpoint-specific client hooks)
+- Status: 04-03 complete — all Phase 04 plans executed. Write-side client modules (messages, thread-actions), mutation hooks with cache invalidation (useThreadMutations), and SSE subscription helper (events, useFarfieldEvents) all implemented. Phase 04 complete; Phase 05 ready to start.
+- Next Action: Execute Phase 05 (MVP UI - Threads and Chat)
 - Blocking Issues: none
-- Active Plan File: `.planning/phases/04-build-typed-mobile-api-client/04-01-PLAN.md` (complete)
-- Active Summary File: `.planning/phases/04-build-typed-mobile-api-client/04-01-SUMMARY.md`
+- Active Plan File: `.planning/phases/04-build-typed-mobile-api-client/04-03-PLAN.md` (complete)
+- Active Summary File: `.planning/phases/04-build-typed-mobile-api-client/04-03-SUMMARY.md`
 
 ## Roadmap Snapshot
 
@@ -26,7 +26,7 @@
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
 | 03 | Create Expo App Skeleton | Milestone 2 | DONE | 3 | 3 |
-| 04 | Build Typed Mobile API Client | Milestone 2 | IN PROGRESS | 1 | 1 |
+| 04 | Build Typed Mobile API Client | Milestone 2 | DONE | 3 | 3 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
 | 07 | Collaboration Mode + User Input Requests | Milestone 3 | TODO | 0 | 0 |
@@ -64,6 +64,12 @@
 - QueryClient defaults: staleTime 30s, gcTime 5m, retry 2, refetchOnWindowFocus false — conservative for remote-control usage.
 - `queryKeys` factory uses const-as pattern for type-safe invalidation surface across all domain queries.
 - Metro config kept minimal: only watchFolders and nodeModulesPaths — no custom resolver transforms needed for @farfield/protocol.
+- `ZodType<T>` used instead of `ZodSchema<T>` in fetchJson() schema param — ZodSchema checks both _input and _output types causing TS2322 with passthrough/discriminated-union schemas from @farfield/protocol.
+- Flat `z.object()` for server response envelopes instead of ZodIntersection (.and()) — intersection type variance breaks with complex nested schemas.
+- Mutation hooks own cache invalidation; UI code never calls queryClient directly for write-side concerns.
+- SSE auth uses Authorization: Bearer header only; no query-param fallback since react-native-sse sends custom headers on all supported platforms.
+- Reconnect policy deferred to Phase 06; subscribeEvents() relies on server-driven retry:1000.
+- `handlersRef` pattern in useFarfieldEvents keeps useEffect stable while allowing handler updates without re-subscribing.
 
 ## Pending Decisions (Current)
 
@@ -122,6 +128,7 @@
 - 2026-02-27: Executed `03-02-PLAN.md` — built Expo Router tab navigator (Connection/Threads/Settings) with Thread Detail stack screen; all four Phase 03 screens reachable; typecheck/lint/Metro all pass (`a3e9637`, `2c6fed9`).
 - 2026-02-27: Executed `03-03-PLAN.md` — typed ConnectionSettings model, SecureStore/AsyncStorage persistence, Settings screen with TextInput fields and save feedback, Connection screen with /api/health Test Connection button and color-coded status; typecheck/lint/Metro all pass (`ea5a369`, `200a365`, `c4e4bfb`). Phase 03 complete.
 - 2026-03-04: Executed `04-01-PLAN.md` — added @tanstack/react-query and @farfield/protocol workspace deps; created metro.config.js with watchFolders for monorepo resolution; built fetchJson() transport with typed error hierarchy; wrapped app root in QueryClientProvider; added queryKeys factory for threads/approvals/agents/collaborationModes/health; typecheck/lint/Metro all pass (`8bbcaec`, `2285e36`, `7a937e2`).
+- 2026-03-04: Executed `04-02-PLAN.md` — built read-side API modules (threads, approvals, agents, collaboration) with Zod envelope validation; created useThreads() and useThread() TanStack Query hooks; replaced Phase 03 placeholder thread UI with live data; typecheck/lint/Metro all pass (`5aaed58`, `25670e5`, `8afee6f`).
 
 ## Notes for Future Commands
 
