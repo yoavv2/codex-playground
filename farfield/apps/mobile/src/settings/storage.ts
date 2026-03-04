@@ -117,3 +117,49 @@ export async function clearSettings(): Promise<void> {
     secureDelete(SECURE_KEY_AUTH_TOKEN),
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Settings change subscriptions
+// ---------------------------------------------------------------------------
+
+/** Callback invoked with the latest settings whenever saveSettings() is called. */
+export type SettingsChangeListener = (settings: ConnectionSettings) => void;
+
+const _settingsListeners = new Set<SettingsChangeListener>();
+
+/**
+ * Subscribe to settings changes.
+ *
+ * The listener is called synchronously (in the same microtask) after every
+ * successful `saveSettings()` call, with the newly saved settings.
+ *
+ * @returns An unsubscribe function. Call it to remove the listener.
+ */
+export function subscribeSettingsChanges(
+  listener: SettingsChangeListener
+): () => void {
+  _settingsListeners.add(listener);
+  return () => {
+    _settingsListeners.delete(listener);
+  };
+}
+
+/**
+ * Persist all connection settings and notify subscribers.
+ *
+ * Replaces the original saveSettings() — same signature, adds fan-out.
+ */
+export async function saveSettingsAndNotify(
+  settings: ConnectionSettings
+): Promise<void> {
+  await saveSettings(settings);
+  // Notify all listeners after the write resolves
+  _settingsListeners.forEach((listener) => {
+    try {
+      listener(settings);
+    } catch (err) {
+      // Listener errors must not block other listeners or the caller
+      console.warn("[settings] listener threw", err);
+    }
+  });
+}

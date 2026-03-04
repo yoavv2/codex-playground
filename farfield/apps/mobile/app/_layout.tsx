@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 
+import { LiveUpdatesProvider } from "@/src/live/LiveUpdatesProvider";
+
 /**
  * Shared QueryClient for the entire app.
  *
@@ -26,13 +28,15 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="thread/[threadId]"
-          options={{ title: "Thread Detail" }}
-        />
-      </Stack>
+      <LiveUpdatesProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="thread/[threadId]"
+            options={{ title: "Thread Detail" }}
+          />
+        </Stack>
+      </LiveUpdatesProvider>
     </QueryClientProvider>
   );
 }
