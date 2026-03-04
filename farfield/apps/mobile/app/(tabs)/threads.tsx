@@ -19,7 +19,7 @@ import {
   ServerUnreachableError,
   RequestTimeoutError,
 } from "@/src/api/errors";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import { useLiveUpdates } from "@/src/live/useLiveUpdates";
 
@@ -127,17 +127,24 @@ function deriveConnectionStatus(
   return hasData ? "connected" : "idle";
 }
 
-function connectionBannerProps(status: ConnectionStatus): {
-  color: string;
-  label: string;
-} | null {
+function connectionBannerProps(
+  status: ConnectionStatus,
+  retryAt: number | null
+): { color: string; label: string } | null {
   switch (status) {
     case "live-connected":
       return { color: "#34C759", label: "Live — connected" };
     case "connected":
       return { color: "#34C759", label: "Connected" };
-    case "live-reconnecting":
-      return { color: "#FF9500", label: "Live updates reconnecting…" };
+    case "live-reconnecting": {
+      if (retryAt !== null) {
+        const secsUntil = Math.max(0, Math.ceil((retryAt - Date.now()) / 1_000));
+        const retryLabel =
+          secsUntil <= 0 ? "now" : secsUntil === 1 ? "in 1s" : `in ${secsUntil}s`;
+        return { color: "#FF9500", label: `Reconnecting ${retryLabel} — pull to refresh` };
+      }
+      return { color: "#FF9500", label: "Reconnecting — pull to refresh" };
+    }
     case "live-error":
       return { color: "#FF9500", label: "Live updates disconnected — pull to refresh" };
     case "auth-failed":
@@ -159,8 +166,22 @@ function connectionBannerProps(status: ConnectionStatus): {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function ConnectionBanner({ status }: { status: ConnectionStatus }) {
-  const props = connectionBannerProps(status);
+function ConnectionBanner({
+  status,
+  retryAt,
+}: {
+  status: ConnectionStatus;
+  retryAt: number | null;
+}) {
+  // Tick once per second while reconnecting so the countdown stays current
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (status !== "live-reconnecting" || retryAt === null) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1_000);
+    return () => clearInterval(id);
+  }, [status, retryAt]);
+
+  const props = connectionBannerProps(status, retryAt);
   if (!props) return null;
 
   return (
@@ -268,7 +289,7 @@ export default function ThreadsScreen() {
   } = useThreads();
 
   // SSE live-update connection status for banner augmentation
-  const { status: sseStatus } = useLiveUpdates();
+  const { status: sseStatus, retryAt } = useLiveUpdates();
 
   const [filter, setFilter] = useState("");
 
@@ -308,8 +329,8 @@ export default function ThreadsScreen() {
       {/* Header */}
       <Text style={styles.title}>Threads</Text>
 
-      {/* Connection banner — compact REST-derived status above the list */}
-      <ConnectionBanner status={connectionStatus} />
+      {/* Connection banner — compact REST-derived + SSE status above the list */}
+      <ConnectionBanner status={connectionStatus} retryAt={retryAt} />
 
       {/* Error state (no data + error) */}
       {isError && !hasData ? (
