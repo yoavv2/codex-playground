@@ -114,6 +114,14 @@ None - no external service configuration required.
 - Connection status vocabulary (colors + labels) is established and should be reused or extended in Phase 08 UX polish
 - Phase 07 (Collaboration Mode + User Input Requests) can begin without any blocking Phase 06 work
 
+## Self-Check: PASSED
+
+- `06-03-SUMMARY.md` exists
+- Commit `e66ebed` (Task 1) confirmed in git log
+- Commit `6df4827` (Task 2) confirmed in git log
+- typecheck: exit 0
+- lint: exit 0
+
 ---
 *Phase: 06-live-updates-sse-and-reconnect-behavior*
 *Completed: 2026-03-05*
