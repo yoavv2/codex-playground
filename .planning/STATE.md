@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-03-04T18:52:00Z
-- Git Branch: codex/05-mvp-ui-threads-and-chat
-- Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
-- Current Phase: 05 - MVP UI - Threads and Chat
-- Progress: 3 / 9 phases complete (33%) — Phase 05 plans 01-02 complete, plan 03 next
+- Last Updated: 2026-03-05T00:00:00Z
+- Git Branch: codex/06-live-updates-sse-and-reconnect-behavior-plans
+- Current Milestone: Milestone 3 - Live Updates and Collaboration
+- Current Phase: 06 - Live Updates (SSE) and Reconnect Behavior
+- Progress: 4 / 9 phases complete (44%) — Phase 06 plan 01 complete, plan 02 next
 
 ## Current Position
 
-- Status: 05-02 complete — Thread detail route converted to MVP chat surface: useThread exposes isRefreshing (background-safe) vs isLoading (initial gate); FlatList with RefreshControl replaces ScrollView; user/agent bubble differentiation; Composer with useSendMessage backed TextInput+Send; inline error feedback; KeyboardAvoidingView for stable bottom layout. Phase 05 plans 01-02 done; plan 03 ready to start.
-- Next Action: Execute Phase 05 plan 03 (Thread actions — interrupt + approval controls)
+- Status: 06-01 complete — SSE reconnect foundation: typed transport contract with EventSourceConfig passthrough; useSseConnection with 6-state lifecycle machine, capped exponential backoff (1s-30s, 25% jitter, 8 retries), AppState pause/resume; LiveUpdatesProvider + useLiveUpdates() context wired into app root; settings fan-out via subscribeSettingsChanges() for runtime reconnect on settings edits.
+- Next Action: Execute Phase 06 plan 02 (query invalidation wiring — onMessage → queryClient.invalidateQueries)
 - Blocking Issues: none
-- Active Plan File: .planning/phases/05-mvp-ui-threads-and-chat/05-02-PLAN.md (complete)
-- Active Summary File: .planning/phases/05-mvp-ui-threads-and-chat/05-02-SUMMARY.md
+- Active Plan File: .planning/phases/06-live-updates-sse-and-reconnect-behavior/06-01-PLAN.md (complete)
+- Active Summary File: .planning/phases/06-live-updates-sse-and-reconnect-behavior/06-01-SUMMARY.md
 
 ## Roadmap Snapshot
 
@@ -28,7 +28,7 @@
 | 03 | Create Expo App Skeleton | Milestone 2 | DONE | 3 | 3 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | DONE | 3 | 3 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | IN_PROGRESS | 2 | 2 |
-| 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
+| 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | IN_PROGRESS | 1 | 1 |
 | 07 | Collaboration Mode + User Input Requests | Milestone 3 | TODO | 0 | 0 |
 | 08 | UX Polish and Platform Readiness | Milestone 3 | TODO | 0 | 0 |
 | 09 | Deployment and Ops (Personal Use) | Milestone 3 | TODO | 0 | 0 |
@@ -77,6 +77,11 @@
 - isRefreshing in useThread: isFetching && \!isLoading — background refetches from cache invalidation do not trigger full-screen loading gate; distinct from isLoading (initial load only).
 - ListItem discriminated union defined at module scope in thread detail screen — required to satisfy useRef<FlatList<ListItem>> TypeScript generic constraint; local type declaration inside function body cannot be referenced at hook call site.
 - Thread detail Composer: draft cleared on mutation success; scrollToEnd called via FlatList ref after successful send.
+- SSE reconnect policy fully owned by useSseConnection(); pollingInterval:0 disables react-native-sse library retry so hook controls backoff exclusively.
+- useSseConnection() backoff: base 1s, max 30s, 25% jitter, MAX_RETRIES=8; status=error after limit reached.
+- AppState pause in useSseConnection() cancels retry timers and closes socket; resumes immediately on foreground (retryCount preserved across pause/resume, resets only on successful connect).
+- saveSettingsAndNotify() wraps saveSettings() with listener fan-out; Settings screen should adopt it (Phase 06-02) so URL/token edits trigger SSE reconnect without app restart.
+- LiveUpdatesProvider positioned inside QueryClientProvider in app root so Phase 06-02 invalidation can use both query client and SSE context together.
 
 ## Pending Decisions (Current)
 
@@ -139,6 +144,7 @@
 - 2026-03-04: Executed `04-03-PLAN.md` — implemented write-side client modules (messages.ts, thread-actions.ts), TanStack Query mutation hooks with cache invalidation (useThreadMutations.ts), and SSE subscription primitive (events.ts, useFarfieldEvents.ts); fixed ZodSchema<T>/ZodIntersection type bugs from 04-02 read-side modules; typecheck/lint pass (`5aaed58`, `70041da`, `e08d607`). Phase 04 complete.
 - 2026-03-04: Executed `05-01-PLAN.md` — upgraded Threads tab to MVP browse surface with local search/filter (title/id/preview), updatedAt-sorted list, non-blocking pull-to-refresh (isFirstLoad/isRefreshing distinction in useThreads), source badges, split empty states, and REST-derived connection banner (5 status variants); typecheck/lint/Metro all pass (`3f15b1a`, `642daa7`).
 - 2026-03-04: Executed `05-02-PLAN.md` — converted thread detail to MVP chat surface: useThread gains isRefreshing/isLoading distinction; FlatList+RefreshControl+KeyboardAvoidingView layout; user/agent turn bubble differentiation; Composer with useSendMessage, trim guard, pending disable, draft-clear on success, inline error feedback; typecheck/lint/expo-export all pass (`50f2a4a`, `2b2d568`).
+- 2026-03-05: Executed `06-01-PLAN.md` — SSE reconnect foundation: typed FarfieldStatePayload/FarfieldHistoryPayload + EventSourceConfig passthrough in events.ts; useSseConnection() with 6-state machine (idle/connecting/connected/reconnecting/paused/error), capped exponential backoff (1s-30s, 25% jitter, 8 retries), AppState pause/resume, retryAt metadata; LiveUpdatesProvider + useLiveUpdates() context in app root; subscribeSettingsChanges() + saveSettingsAndNotify() in storage.ts; typecheck/lint/expo-export all pass (`38e227b`, `ec5fa54`, `07002b1`).
 
 ## Notes for Future Commands
 
@@ -153,3 +159,6 @@
 - Phase 05 entry point: import mutation hooks from `src/hooks/useThreadMutations`, SSE hook from `src/hooks/useFarfieldEvents`, read hooks from `src/hooks/useThreads` and `src/hooks/useApprovals`.
 - Phase 05 plan 01 complete: `useThreads` now exports `sortedThreads`, `isFirstLoad`, `isRefreshing`. Threads tab has local search, source badge, split empty states, connection banner. Connection banner uses only REST-derived state; Phase 06 adds SSE/reconnect states.
 - Phase 05 plan 02 complete: `useThread` now exports `isRefreshing` (background-safe refetch indicator). Thread detail rebuilt as chat surface: FlatList+RefreshControl, user/agent turn bubbles, KeyboardAvoidingView, Composer with draft/send/error state backed by `useSendMessage`.
+- Phase 06 entry point: `src/live/LiveUpdatesProvider.tsx` exposes `useLiveUpdates()` for connection state; `src/hooks/useSseConnection.ts` for direct SSE lifecycle; `src/settings/storage.ts` exports `saveSettingsAndNotify()` for reconnect-triggering saves.
+- Phase 06 plan 01 complete: events.ts typed transport + EventSourceConfig passthrough; useSseConnection() 6-state machine with backoff/AppState; LiveUpdatesProvider context in app root; settings subscription mechanism.
+- Phase 06-02 tasks: wire onMessage → queryClient.invalidateQueries for threads/approvals; upgrade Settings save to use saveSettingsAndNotify(); upgrade Threads tab connection banner to use useLiveUpdates() SSE status.
