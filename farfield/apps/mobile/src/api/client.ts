@@ -24,7 +24,7 @@
  *     RequestTimeoutError | HttpError | SchemaMismatchError
  */
 
-import { type ZodSchema } from "zod";
+import { type ZodType } from "zod";
 
 import { loadSettings } from "@/src/settings/storage";
 import {
@@ -48,7 +48,7 @@ export interface FetchJsonOptions<T> {
   headers?: Record<string, string>;
   /** Zod schema to parse the response body against. When provided, a schema
    *  mismatch throws SchemaMismatchError instead of returning raw data. */
-  schema?: ZodSchema<T>;
+  schema?: ZodType<T>;
   /** Request timeout in milliseconds. Defaults to DEFAULT_TIMEOUT_MS. */
   timeoutMs?: number;
 }
