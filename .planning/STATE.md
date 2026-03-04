@@ -129,6 +129,7 @@
 - 2026-02-27: Executed `03-03-PLAN.md` — typed ConnectionSettings model, SecureStore/AsyncStorage persistence, Settings screen with TextInput fields and save feedback, Connection screen with /api/health Test Connection button and color-coded status; typecheck/lint/Metro all pass (`ea5a369`, `200a365`, `c4e4bfb`). Phase 03 complete.
 - 2026-03-04: Executed `04-01-PLAN.md` — added @tanstack/react-query and @farfield/protocol workspace deps; created metro.config.js with watchFolders for monorepo resolution; built fetchJson() transport with typed error hierarchy; wrapped app root in QueryClientProvider; added queryKeys factory for threads/approvals/agents/collaborationModes/health; typecheck/lint/Metro all pass (`8bbcaec`, `2285e36`, `7a937e2`).
 - 2026-03-04: Executed `04-02-PLAN.md` — built read-side API modules (threads, approvals, agents, collaboration) with Zod envelope validation; created useThreads() and useThread() TanStack Query hooks; replaced Phase 03 placeholder thread UI with live data; typecheck/lint/Metro all pass (`5aaed58`, `25670e5`, `8afee6f`).
+- 2026-03-04: Executed `04-03-PLAN.md` — implemented write-side client modules (messages.ts, thread-actions.ts), TanStack Query mutation hooks with cache invalidation (useThreadMutations.ts), and SSE subscription primitive (events.ts, useFarfieldEvents.ts); fixed ZodSchema<T>/ZodIntersection type bugs from 04-02 read-side modules; typecheck/lint pass (`5aaed58`, `70041da`, `e08d607`). Phase 04 complete.
 
 ## Notes for Future Commands
 
@@ -139,3 +140,5 @@
 - Active Farfield branch: `codex/phase-02-remote-hardening`.
 - Phase 04 entry point: `src/settings/loadSettings()` provides serverUrl+authToken; `src/api/` is the module home for API functions; thread screen skeletons have Phase 04 integration annotations.
 - Phase 04 plan 01 complete: `src/api/client.ts` (fetchJson), `src/api/errors.ts` (typed errors), `src/api/queryKeys.ts` (key factory), `app/_layout.tsx` (QueryClientProvider), `metro.config.js` (workspace Metro config).
+- Phase 04 complete (plans 01-03): full client surface ready for Phase 05. Read-side: threads.ts, agents.ts, approvals.ts, collaboration.ts + useThreads/useThread hooks. Write-side: messages.ts, thread-actions.ts + useThreadMutations.ts. SSE: events.ts + useFarfieldEvents.ts.
+- Phase 05 entry point: import mutation hooks from `src/hooks/useThreadMutations`, SSE hook from `src/hooks/useFarfieldEvents`, read hooks from `src/hooks/useThreads` and `src/hooks/useApprovals`.
