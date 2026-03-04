@@ -7,8 +7,8 @@
  *   - Always cleans up on unmount.
  *
  * The hook does NOT own reconnect UI, exponential backoff, or live-state
- * wiring. Those belong to Phase 06. This is the primitive that Phase 05+
- * components build on.
+ * wiring. Those belong to useSseConnection (Phase 06). This is the primitive
+ * that higher-level hooks build on.
  *
  * Usage:
  *   useFarfieldEvents(serverUrl, authToken, {
@@ -20,7 +20,11 @@
 
 import { useEffect, useRef } from "react";
 
-import { subscribeEvents, type FarfieldEventHandlers } from "@/src/api/events";
+import {
+  subscribeEvents,
+  type FarfieldEventHandlers,
+  type SubscribeEventsOptions,
+} from "@/src/api/events";
 
 /**
  * Subscribe to the Farfield /events stream for the lifetime of the component.
@@ -33,11 +37,14 @@ import { subscribeEvents, type FarfieldEventHandlers } from "@/src/api/events";
  * @param authToken - Optional bearer token for the Authorization header.
  * @param handlers  - Stable callback references for lifecycle and message events.
  *                    Wrap in useCallback or useMemo to avoid restart churn.
+ * @param options   - Optional EventSource configuration, e.g. `{ eventSourceConfig: { pollingInterval: 0 } }`
+ *                    to disable library-managed reconnect for caller-controlled backoff.
  */
 export function useFarfieldEvents(
   serverUrl: string | null | undefined,
   authToken: string | null | undefined,
-  handlers: FarfieldEventHandlers
+  handlers: FarfieldEventHandlers,
+  options?: SubscribeEventsOptions
 ): void {
   // Keep a ref to the latest handlers so the effect closure is stable even if
   // callers supply inline arrow functions. We still re-subscribe when
@@ -45,19 +52,29 @@ export function useFarfieldEvents(
   const handlersRef = useRef<FarfieldEventHandlers>(handlers);
   handlersRef.current = handlers;
 
+  // Stable ref to options so callers can pass an inline object without
+  // triggering unnecessary re-subscriptions.
+  const optionsRef = useRef<SubscribeEventsOptions | undefined>(options);
+  optionsRef.current = options;
+
   useEffect(() => {
     if (!serverUrl || serverUrl.trim() === "") {
       return;
     }
 
-    const cleanup = subscribeEvents(serverUrl, authToken, {
-      onOpen: () => handlersRef.current.onOpen?.(),
-      onClose: () => handlersRef.current.onClose?.(),
-      onMessage: (payload) => handlersRef.current.onMessage?.(payload),
-      onError: (err) => handlersRef.current.onError?.(err),
-    });
+    const cleanup = subscribeEvents(
+      serverUrl,
+      authToken,
+      {
+        onOpen: () => handlersRef.current.onOpen?.(),
+        onClose: () => handlersRef.current.onClose?.(),
+        onMessage: (payload) => handlersRef.current.onMessage?.(payload),
+        onError: (err) => handlersRef.current.onError?.(err),
+      },
+      optionsRef.current
+    );
 
     return cleanup;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverUrl, authToken]);
 }
