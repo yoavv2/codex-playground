@@ -6,22 +6,52 @@
  *   - serverUrl       → AsyncStorage       (non-secret; readable profile config)
  *   - profileLabel    → AsyncStorage       (non-secret; optional display label)
  *
+ * On web, expo-secure-store is unavailable so authToken falls back to AsyncStorage.
+ *
  * Usage:
  *   const settings = await loadSettings();
  *   await saveSettings({ serverUrl, authToken, profileLabel });
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 import { ConnectionSettings, DEFAULT_SETTINGS } from "./types";
 
 // AsyncStorage keys (non-secret values)
-const ASYNC_KEY_SERVER_URL = "farfield:serverUrl";
-const ASYNC_KEY_PROFILE_LABEL = "farfield:profileLabel";
+const ASYNC_KEY_SERVER_URL = "farfield.serverUrl";
+const ASYNC_KEY_PROFILE_LABEL = "farfield.profileLabel";
 
-// SecureStore key (sensitive: auth token)
-const SECURE_KEY_AUTH_TOKEN = "farfield:authToken";
+// SecureStore key / AsyncStorage fallback key (sensitive: auth token)
+const SECURE_KEY_AUTH_TOKEN = "farfield.authToken";
+
+// Lazy-loaded SecureStore — only available on native platforms
+let _secureStore: typeof import("expo-secure-store") | null = null;
+async function getSecureStore() {
+  if (Platform.OS === "web") return null;
+  if (!_secureStore) {
+    _secureStore = await import("expo-secure-store");
+  }
+  return _secureStore;
+}
+
+async function secureGet(key: string): Promise<string | null> {
+  const store = await getSecureStore();
+  if (store) return store.getItemAsync(key);
+  return AsyncStorage.getItem(key);
+}
+
+async function secureSet(key: string, value: string): Promise<void> {
+  const store = await getSecureStore();
+  if (store) return store.setItemAsync(key, value);
+  return AsyncStorage.setItem(key, value);
+}
+
+async function secureDelete(key: string): Promise<void> {
+  const store = await getSecureStore();
+  if (store) return store.deleteItemAsync(key);
+  return AsyncStorage.removeItem(key);
+}
 
 /**
  * Load all connection settings from persistent storage.
@@ -31,7 +61,7 @@ export async function loadSettings(): Promise<ConnectionSettings> {
   const [serverUrl, profileLabel, authToken] = await Promise.all([
     AsyncStorage.getItem(ASYNC_KEY_SERVER_URL),
     AsyncStorage.getItem(ASYNC_KEY_PROFILE_LABEL),
-    SecureStore.getItemAsync(SECURE_KEY_AUTH_TOKEN),
+    secureGet(SECURE_KEY_AUTH_TOKEN),
   ]);
 
   return {
@@ -44,35 +74,37 @@ export async function loadSettings(): Promise<ConnectionSettings> {
 /**
  * Persist all connection settings.
  * - serverUrl and profileLabel are written to AsyncStorage.
- * - authToken is written to SecureStore (device-encrypted).
+ * - authToken is written to SecureStore (device-encrypted), or AsyncStorage on web.
  * - Empty strings are treated as "cleared" (delete the key).
  */
 export async function saveSettings(
   settings: ConnectionSettings
 ): Promise<void> {
-  const asyncWrites: Promise<void>[] = [];
+  const writes: Promise<void>[] = [];
 
   if (settings.serverUrl) {
-    asyncWrites.push(
+    writes.push(
       AsyncStorage.setItem(ASYNC_KEY_SERVER_URL, settings.serverUrl)
     );
   } else {
-    asyncWrites.push(AsyncStorage.removeItem(ASYNC_KEY_SERVER_URL));
+    writes.push(AsyncStorage.removeItem(ASYNC_KEY_SERVER_URL));
   }
 
   if (settings.profileLabel) {
-    asyncWrites.push(
+    writes.push(
       AsyncStorage.setItem(ASYNC_KEY_PROFILE_LABEL, settings.profileLabel)
     );
   } else {
-    asyncWrites.push(AsyncStorage.removeItem(ASYNC_KEY_PROFILE_LABEL));
+    writes.push(AsyncStorage.removeItem(ASYNC_KEY_PROFILE_LABEL));
   }
 
-  const secureWrite: Promise<void> = settings.authToken
-    ? SecureStore.setItemAsync(SECURE_KEY_AUTH_TOKEN, settings.authToken)
-    : SecureStore.deleteItemAsync(SECURE_KEY_AUTH_TOKEN);
+  if (settings.authToken) {
+    writes.push(secureSet(SECURE_KEY_AUTH_TOKEN, settings.authToken));
+  } else {
+    writes.push(secureDelete(SECURE_KEY_AUTH_TOKEN));
+  }
 
-  await Promise.all([...asyncWrites, secureWrite]);
+  await Promise.all(writes);
 }
 
 /**
@@ -80,7 +112,8 @@ export async function saveSettings(
  */
 export async function clearSettings(): Promise<void> {
   await Promise.all([
-    AsyncStorage.removeMany([ASYNC_KEY_SERVER_URL, ASYNC_KEY_PROFILE_LABEL]),
-    SecureStore.deleteItemAsync(SECURE_KEY_AUTH_TOKEN),
+    AsyncStorage.removeItem(ASYNC_KEY_SERVER_URL),
+    AsyncStorage.removeItem(ASYNC_KEY_PROFILE_LABEL),
+    secureDelete(SECURE_KEY_AUTH_TOKEN),
   ]);
 }
