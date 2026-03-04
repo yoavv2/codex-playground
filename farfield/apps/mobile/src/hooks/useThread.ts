@@ -12,6 +12,11 @@
  * Cache keys:
  *   queryKeys.threads.detail(threadId)     — invalidated after thread mutations
  *   queryKeys.approvals.pending(threadId)  — invalidated after approval responses
+ *
+ * Interactive fetch state:
+ *   isLoading     — true on the very first fetch when no cached data exists yet
+ *   isRefreshing  — true during a background refetch when data is already shown
+ *                   (used by RefreshControl for pull-to-refresh UX)
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -30,8 +35,17 @@ export interface UseThreadResult {
   threadDetail: ThreadDetailEnvelope | undefined;
   /** Pending approvals for the thread, or empty array when unavailable. */
   pendingApprovals: PendingApproval[];
-  /** True while the primary thread detail fetch is in flight. */
+  /**
+   * True only while the very first fetch is in flight and no cached data
+   * exists yet. The screen should show a full-screen loading state only when
+   * this is true.
+   */
   isLoading: boolean;
+  /**
+   * True during a background refetch when the thread already has data in the
+   * cache. Use this to drive a RefreshControl instead of hiding the content.
+   */
+  isRefreshing: boolean;
   /** True when the primary fetch has resolved. */
   isSuccess: boolean;
   /** True when the primary fetch has failed. */
@@ -48,7 +62,7 @@ export interface UseThreadResult {
  * @param threadId - The thread to fetch (should match the route param).
  *
  * @example
- * const { threadDetail, pendingApprovals, isLoading } = useThread(threadId);
+ * const { threadDetail, pendingApprovals, isLoading, isRefreshing, refetch } = useThread(threadId);
  */
 export function useThread(threadId: string): UseThreadResult {
   const threadQuery = useQuery({
@@ -75,10 +89,21 @@ export function useThread(threadId: string): UseThreadResult {
       ? []
       : []);
 
+  // isLoading: true only on the very first fetch (no data in cache yet).
+  // TanStack Query v5: isLoading === isPending && isFetching
+  const isLoading = threadQuery.isLoading;
+
+  // isRefreshing: true when a background refetch is in progress but we already
+  // have data to show — prevents the full-screen loading state from appearing
+  // again when the user pulls to refresh or cache invalidation triggers.
+  const isRefreshing =
+    threadQuery.isFetching && !threadQuery.isLoading;
+
   return {
     threadDetail: threadQuery.data,
     pendingApprovals,
-    isLoading: threadQuery.isLoading,
+    isLoading,
+    isRefreshing,
     isSuccess: threadQuery.isSuccess,
     isError: threadQuery.isError,
     error: threadQuery.error,
