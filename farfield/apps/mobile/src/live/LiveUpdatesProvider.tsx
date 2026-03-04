@@ -7,13 +7,24 @@
  *      saveSettingsAndNotify) trigger a clean SSE reconnect without a
  *      full app restart.
  *   3. Drive useSseConnection() with the current settings.
- *   4. Expose connection status via React context so any screen or hook
+ *   4. Route incoming SSE messages to TanStack Query invalidations using
+ *      routeEvent() and per-domain debounce/coalescing.
+ *   5. Expose connection status via React context so any screen or hook
  *      can observe live-update state.
  *
- * Intentional scope boundary:
- *   This provider establishes the transport + state-distribution foundation.
- *   Query invalidation (TanStack Query refetch on SSE messages) is wired in
- *   Phase 06-02, not here.
+ * Invalidation strategy:
+ *   - Each SyncIntent domain has its own debounce timer so that a burst of
+ *     rapid IPC frames (e.g. Codex streaming output) collapses into a single
+ *     invalidation per domain, not N separate refetches.
+ *   - Thread-specific invalidation is preferred over broad "invalidate all"
+ *     whenever routeEvent() can extract a threadId.
+ *   - REST endpoints remain the source of truth; SSE is purely a signal.
+ *
+ * Debounce windows (ms):
+ *   THREAD_LIST_DEBOUNCE_MS   — 800 ms (list updates are low-urgency)
+ *   THREAD_DETAIL_DEBOUNCE_MS — 400 ms (detail updates are more time-sensitive)
+ *   APPROVALS_DEBOUNCE_MS     — 300 ms (approval prompts need fast response)
+ *   COLLAB_MODE_DEBOUNCE_MS   — 800 ms (mode changes are infrequent)
  *
  * Usage (wrap the app root, e.g. in app/_layout.tsx):
  *
@@ -34,6 +45,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   loadSettings,
@@ -45,6 +57,29 @@ import {
   useSseConnection,
   type SseConnectionState,
 } from "@/src/hooks/useSseConnection";
+import { queryKeys } from "@/src/api/queryKeys";
+import type { FarfieldEventPayload } from "@/src/api/events";
+import { routeEvent } from "@/src/live/event-routing";
+
+// ---------------------------------------------------------------------------
+// Debounce windows
+// ---------------------------------------------------------------------------
+
+/** How long to wait after the last thread-list-changing event before invalidating. */
+const THREAD_LIST_DEBOUNCE_MS = 800;
+
+/**
+ * How long to wait after the last thread-detail-changing event before
+ * invalidating a specific thread. Per-thread debounce windows are tracked
+ * independently so a burst on one thread doesn't suppress updates on another.
+ */
+const THREAD_DETAIL_DEBOUNCE_MS = 400;
+
+/** Approval prompts need faster feedback. */
+const APPROVALS_DEBOUNCE_MS = 300;
+
+/** Collaboration mode changes are infrequent; a longer window is fine. */
+const COLLAB_MODE_DEBOUNCE_MS = 800;
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -65,6 +100,224 @@ export interface LiveUpdatesContextValue extends SseConnectionState {
 }
 
 const LiveUpdatesContext = createContext<LiveUpdatesContextValue | null>(null);
+
+// ---------------------------------------------------------------------------
+// Debounced invalidation hook (internal)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a stable `handleMessage` callback that routes SSE payloads to
+ * debounced TanStack Query invalidations.
+ *
+ * Per-domain timers:
+ *   - A single timer for thread-list invalidation (coalesces list-affecting events)
+ *   - A per-threadId Map of timers for thread-detail invalidation
+ *   - A per-threadId Map of timers for approvals invalidation
+ *   - A single timer for collaboration-mode invalidation
+ *
+ * All timers are cleared on unmount via the returned cleanup function.
+ */
+function useInvalidationHandler() {
+  const queryClient = useQueryClient();
+
+  // Per-domain timer refs (cleared on unmount)
+  const listTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailTimersRef = useRef<Map<string | null, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const approvalsTimersRef = useRef<Map<string | null, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+  const collabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable refs for queryClient (React Query guarantees QueryClient is stable,
+  // but using a ref avoids any lint/exhaustive-deps warnings in callbacks)
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+
+  /**
+   * Debounce helper: replaces any existing timer for the given key in the map
+   * with a new one that fires after `delayMs`.
+   */
+  const debounce = useCallback(
+    (
+      timerMap: Map<string | null, ReturnType<typeof setTimeout>>,
+      key: string | null,
+      delayMs: number,
+      fn: () => void
+    ) => {
+      const existing = timerMap.get(key);
+      if (existing !== undefined) {
+        clearTimeout(existing);
+      }
+      timerMap.set(
+        key,
+        setTimeout(() => {
+          timerMap.delete(key);
+          fn();
+        }, delayMs)
+      );
+    },
+    []
+  );
+
+  /**
+   * Debounce the single thread-list timer (no per-key bucketing needed).
+   */
+  const debounceList = useCallback(
+    (delayMs: number, fn: () => void) => {
+      if (listTimerRef.current !== null) {
+        clearTimeout(listTimerRef.current);
+      }
+      listTimerRef.current = setTimeout(() => {
+        listTimerRef.current = null;
+        fn();
+      }, delayMs);
+    },
+    []
+  );
+
+  /**
+   * Debounce the single collab-mode timer.
+   */
+  const debounceCollab = useCallback(
+    (delayMs: number, fn: () => void) => {
+      if (collabTimerRef.current !== null) {
+        clearTimeout(collabTimerRef.current);
+      }
+      collabTimerRef.current = setTimeout(() => {
+        collabTimerRef.current = null;
+        fn();
+      }, delayMs);
+    },
+    []
+  );
+
+  const handleMessage = useCallback(
+    (payload: FarfieldEventPayload) => {
+      const intent = routeEvent(payload);
+
+      switch (intent.type) {
+        case "no-op":
+          return;
+
+        case "thread-list-changed":
+          debounceList(THREAD_LIST_DEBOUNCE_MS, () => {
+            void queryClientRef.current.invalidateQueries({
+              queryKey: queryKeys.threads.list(),
+            });
+          });
+          return;
+
+        case "thread-detail-changed": {
+          const { threadId } = intent;
+          debounce(
+            detailTimersRef.current,
+            threadId,
+            THREAD_DETAIL_DEBOUNCE_MS,
+            () => {
+              if (threadId) {
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.threads.detail(threadId),
+                });
+              } else {
+                // No threadId known — invalidate all thread detail queries
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.threads.all,
+                });
+              }
+            }
+          );
+          return;
+        }
+
+        case "thread-list-and-detail-changed": {
+          const { threadId } = intent;
+          // List — shared timer
+          debounceList(THREAD_LIST_DEBOUNCE_MS, () => {
+            void queryClientRef.current.invalidateQueries({
+              queryKey: queryKeys.threads.list(),
+            });
+          });
+          // Detail — per-thread timer
+          debounce(
+            detailTimersRef.current,
+            threadId,
+            THREAD_DETAIL_DEBOUNCE_MS,
+            () => {
+              if (threadId) {
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.threads.detail(threadId),
+                });
+              } else {
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.threads.all,
+                });
+              }
+            }
+          );
+          return;
+        }
+
+        case "approvals-changed": {
+          const { threadId } = intent;
+          debounce(
+            approvalsTimersRef.current,
+            threadId,
+            APPROVALS_DEBOUNCE_MS,
+            () => {
+              if (threadId) {
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.approvals.pending(threadId),
+                });
+              } else {
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.approvals.all,
+                });
+              }
+            }
+          );
+          return;
+        }
+
+        case "collaboration-mode-changed": {
+          const { threadId } = intent;
+          debounceCollab(COLLAB_MODE_DEBOUNCE_MS, () => {
+            if (threadId) {
+              void queryClientRef.current.invalidateQueries({
+                queryKey: queryKeys.collaborationModes.forThread(threadId),
+              });
+            } else {
+              void queryClientRef.current.invalidateQueries({
+                queryKey: queryKeys.collaborationModes.all,
+              });
+            }
+          });
+          return;
+        }
+      }
+    },
+    [debounce, debounceList, debounceCollab]
+  );
+
+  // Cleanup: clear all pending timers on unmount
+  const cleanup = useCallback(() => {
+    if (listTimerRef.current !== null) {
+      clearTimeout(listTimerRef.current);
+      listTimerRef.current = null;
+    }
+    detailTimersRef.current.forEach((t) => clearTimeout(t));
+    detailTimersRef.current.clear();
+    approvalsTimersRef.current.forEach((t) => clearTimeout(t));
+    approvalsTimersRef.current.clear();
+    if (collabTimerRef.current !== null) {
+      clearTimeout(collabTimerRef.current);
+      collabTimerRef.current = null;
+    }
+  }, []);
+
+  return { handleMessage, cleanup };
+}
 
 // ---------------------------------------------------------------------------
 // Provider
@@ -121,8 +374,18 @@ export function LiveUpdatesProvider({ children }: LiveUpdatesProviderProps) {
   const authToken =
     settingsLoaded && settings?.authToken ? settings.authToken : null;
 
+  // Debounced query invalidation handler
+  const { handleMessage, cleanup } = useInvalidationHandler();
+
+  // Clean up all pending debounce timers on unmount
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
+
   // Drive the SSE connection — useSseConnection owns all retry/backoff/AppState logic
-  const sseState = useSseConnection(serverUrl, authToken);
+  const sseState = useSseConnection(serverUrl, authToken, {
+    onMessage: handleMessage,
+  });
 
   // Stable reference to saveSettingsAndNotify for context consumers
   const saveSettingsRef = useRef(saveSettingsAndNotify);
