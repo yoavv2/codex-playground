@@ -16,8 +16,8 @@
 - Status: 05-02 complete — Thread detail route converted to MVP chat surface: useThread exposes isRefreshing (background-safe) vs isLoading (initial gate); FlatList with RefreshControl replaces ScrollView; user/agent bubble differentiation; Composer with useSendMessage backed TextInput+Send; inline error feedback; KeyboardAvoidingView for stable bottom layout. Phase 05 plans 01-02 done; plan 03 ready to start.
 - Next Action: Execute Phase 05 plan 03 (Thread actions — interrupt + approval controls)
 - Blocking Issues: none
-- Active Plan File:  (complete)
-- Active Summary File: 
+- Active Plan File: .planning/phases/05-mvp-ui-threads-and-chat/05-02-PLAN.md (complete)
+- Active Summary File: .planning/phases/05-mvp-ui-threads-and-chat/05-02-SUMMARY.md
 
 ## Roadmap Snapshot
 
@@ -138,6 +138,7 @@
 - 2026-03-04: Executed `04-02-PLAN.md` — built read-side API modules (threads, approvals, agents, collaboration) with Zod envelope validation; created useThreads() and useThread() TanStack Query hooks; replaced Phase 03 placeholder thread UI with live data; typecheck/lint/Metro all pass (`5aaed58`, `25670e5`, `8afee6f`).
 - 2026-03-04: Executed `04-03-PLAN.md` — implemented write-side client modules (messages.ts, thread-actions.ts), TanStack Query mutation hooks with cache invalidation (useThreadMutations.ts), and SSE subscription primitive (events.ts, useFarfieldEvents.ts); fixed ZodSchema<T>/ZodIntersection type bugs from 04-02 read-side modules; typecheck/lint pass (`5aaed58`, `70041da`, `e08d607`). Phase 04 complete.
 - 2026-03-04: Executed `05-01-PLAN.md` — upgraded Threads tab to MVP browse surface with local search/filter (title/id/preview), updatedAt-sorted list, non-blocking pull-to-refresh (isFirstLoad/isRefreshing distinction in useThreads), source badges, split empty states, and REST-derived connection banner (5 status variants); typecheck/lint/Metro all pass (`3f15b1a`, `642daa7`).
+- 2026-03-04: Executed `05-02-PLAN.md` — converted thread detail to MVP chat surface: useThread gains isRefreshing/isLoading distinction; FlatList+RefreshControl+KeyboardAvoidingView layout; user/agent turn bubble differentiation; Composer with useSendMessage, trim guard, pending disable, draft-clear on success, inline error feedback; typecheck/lint/expo-export all pass (`50f2a4a`, `2b2d568`).
 
 ## Notes for Future Commands
 
@@ -151,3 +152,4 @@
 - Phase 04 complete (plans 01-03): full client surface ready for Phase 05. Read-side: threads.ts, agents.ts, approvals.ts, collaboration.ts + useThreads/useThread hooks. Write-side: messages.ts, thread-actions.ts + useThreadMutations.ts. SSE: events.ts + useFarfieldEvents.ts.
 - Phase 05 entry point: import mutation hooks from `src/hooks/useThreadMutations`, SSE hook from `src/hooks/useFarfieldEvents`, read hooks from `src/hooks/useThreads` and `src/hooks/useApprovals`.
 - Phase 05 plan 01 complete: `useThreads` now exports `sortedThreads`, `isFirstLoad`, `isRefreshing`. Threads tab has local search, source badge, split empty states, connection banner. Connection banner uses only REST-derived state; Phase 06 adds SSE/reconnect states.
+- Phase 05 plan 02 complete: `useThread` now exports `isRefreshing` (background-safe refetch indicator). Thread detail rebuilt as chat surface: FlatList+RefreshControl, user/agent turn bubbles, KeyboardAvoidingView, Composer with draft/send/error state backed by `useSendMessage`.
