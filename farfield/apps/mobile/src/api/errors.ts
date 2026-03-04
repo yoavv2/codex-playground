@@ -51,12 +51,12 @@ export class UnauthorizedError extends FarfieldClientError {
 
 /** The server could not be reached (network error, DNS failure, connection refused). */
 export class ServerUnreachableError extends FarfieldClientError {
-  public readonly cause: unknown;
+  public readonly detail: string;
 
-  constructor(detail: string, cause?: unknown) {
+  constructor(detail: string) {
     super("ServerUnreachable", `Server unreachable: ${detail}`);
     this.name = "ServerUnreachableError";
-    this.cause = cause;
+    this.detail = detail;
   }
 }
 

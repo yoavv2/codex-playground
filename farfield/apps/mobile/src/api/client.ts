@@ -39,6 +39,26 @@ import {
 /** Default request timeout in milliseconds. */
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+/**
+ * Build actionable messaging for low-level network failures.
+ *
+ * Browsers often collapse DNS/TCP/CORS failures into a generic "Failed to fetch"
+ * error. Add context so UI surfaces useful next steps.
+ */
+function normalizeNetworkErrorDetail(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const normalized = raw.trim().toLowerCase();
+
+  if (
+    normalized === "failed to fetch" ||
+    normalized.includes("network request failed")
+  ) {
+    return "Failed to fetch. Verify the server URL, ensure Farfield is running and reachable, and if using Expo web include this app origin in FARFIELD_ALLOWED_ORIGINS (for example http://localhost:8081).";
+  }
+
+  return raw;
+}
+
 export interface FetchJsonOptions<T> {
   /** HTTP method (default: "GET"). */
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -124,8 +144,8 @@ export async function fetchJson<T = unknown>(
       throw new RequestTimeoutError(timeoutMs);
     }
 
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new ServerUnreachableError(detail, err);
+    const detail = normalizeNetworkErrorDetail(err);
+    throw new ServerUnreachableError(detail);
   }
 
   clearTimeout(timer);
