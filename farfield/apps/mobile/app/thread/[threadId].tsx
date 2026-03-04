@@ -15,6 +15,7 @@ import { useLocalSearchParams } from "expo-router";
 
 import { useThread } from "@/src/hooks/useThread";
 import { useSendMessage } from "@/src/hooks/useThreadMutations";
+import { useLiveUpdates } from "@/src/live/useLiveUpdates";
 import type { PendingApproval } from "@/src/api/approvals";
 import { FarfieldClientError } from "@/src/api/errors";
 import type { ThreadDetailEnvelope } from "@/src/api/threads";
@@ -227,6 +228,40 @@ function Composer({ threadId, onSent }: ComposerProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Live sync status chip — lightweight transport indicator for thread detail
+// ---------------------------------------------------------------------------
+
+import type { SseStatus } from "@/src/hooks/useSseConnection";
+
+function liveSyncChipProps(status: SseStatus): { color: string; label: string } | null {
+  switch (status) {
+    case "connected":
+      return { color: "#34C759", label: "Live" };
+    case "reconnecting":
+      return { color: "#FF9500", label: "Reconnecting — pull to refresh" };
+    case "paused":
+      return { color: "#8E8E93", label: "Paused" };
+    case "error":
+      return { color: "#FF9500", label: "Disconnected — pull to refresh" };
+    case "connecting":
+      return { color: "#8E8E93", label: "Connecting…" };
+    case "idle":
+    default:
+      return null;
+  }
+}
+
+function LiveSyncChip({ status }: { status: SseStatus }) {
+  const props = liveSyncChipProps(status);
+  if (!props) return null;
+  return (
+    <View style={[styles.liveSyncChip, { backgroundColor: props.color }]}>
+      <Text style={styles.liveSyncChipText}>{props.label}</Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Screen list item types (module-level so they can be referenced by useRef)
 // ---------------------------------------------------------------------------
 
@@ -254,6 +289,8 @@ export default function ThreadDetailScreen() {
     error,
     refetch,
   } = useThread(threadId ?? "");
+
+  const { status: sseStatus } = useLiveUpdates();
 
   // Scroll to bottom helper — used after a successful send
   function scrollToBottom() {
@@ -366,6 +403,8 @@ export default function ThreadDetailScreen() {
             <Text style={styles.agentId}>{agentId}</Text>
           </>
         ) : null}
+        {/* Live-sync status chip — pull to refresh is always available as fallback */}
+        <LiveSyncChip status={sseStatus} />
       </View>
 
       {/* Conversation section header */}
@@ -679,5 +718,18 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
     marginBottom: 6,
     paddingHorizontal: 4,
+  },
+  // Live sync status chip
+  liveSyncChip: {
+    alignSelf: "flex-start",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 10,
+  },
+  liveSyncChipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

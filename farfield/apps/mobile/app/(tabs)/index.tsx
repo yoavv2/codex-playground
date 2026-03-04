@@ -11,8 +11,42 @@ import { useFocusEffect } from "expo-router";
 
 import { loadSettings } from "@/src/settings";
 import { checkHealth } from "@/src/api/health";
+import { useLiveUpdates } from "@/src/live/useLiveUpdates";
+import type { SseStatus } from "@/src/hooks/useSseConnection";
 
 type HealthStatus = "unknown" | "checking" | "ok" | "error";
+
+// ---------------------------------------------------------------------------
+// Live transport status chip — consistent vocabulary with Threads banner
+// ---------------------------------------------------------------------------
+
+function liveTransportProps(status: SseStatus): { color: string; label: string } | null {
+  switch (status) {
+    case "connected":
+      return { color: "#34C759", label: "Live updates: connected" };
+    case "connecting":
+      return { color: "#8E8E93", label: "Live updates: connecting…" };
+    case "reconnecting":
+      return { color: "#FF9500", label: "Live updates: reconnecting…" };
+    case "paused":
+      return { color: "#8E8E93", label: "Live updates: paused (app backgrounded)" };
+    case "error":
+      return { color: "#FF3B30", label: "Live updates: disconnected — check server" };
+    case "idle":
+    default:
+      return null;
+  }
+}
+
+function LiveTransportRow({ status }: { status: SseStatus }) {
+  const props = liveTransportProps(status);
+  if (!props) return null;
+  return (
+    <View style={[styles.liveRow, { backgroundColor: props.color }]}>
+      <Text style={styles.liveRowText}>{props.label}</Text>
+    </View>
+  );
+}
 
 /**
  * Connection screen — Tab 1
@@ -33,6 +67,9 @@ export default function ConnectionScreen() {
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState<HealthStatus>("unknown");
   const [healthMessage, setHealthMessage] = useState<string>("");
+
+  // Live transport status from the app-wide SSE connection
+  const { status: sseStatus } = useLiveUpdates();
 
   // Hydrate from persisted storage every time the screen gains focus.
   // This ensures values updated in the Settings tab are reflected here immediately.
@@ -157,6 +194,9 @@ export default function ConnectionScreen() {
         </Text>
       )}
 
+      {/* Live transport status — shows SSE connection health for runtime troubleshooting */}
+      <LiveTransportRow status={sseStatus} />
+
       <StatusBar style="auto" />
     </View>
   );
@@ -269,5 +309,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8E8E93",
     lineHeight: 20,
+  },
+  // Live transport status row
+  liveRow: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 4,
+    alignSelf: "stretch",
+  },
+  liveRowText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
