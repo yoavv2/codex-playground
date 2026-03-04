@@ -21,11 +21,14 @@ import {
 } from "@/src/api/errors";
 import { useState, useMemo } from "react";
 
+import { useLiveUpdates } from "@/src/live/useLiveUpdates";
+
 /**
  * Threads screen — Tab 2
  *
  * Phase 05: MVP browse surface with local search, richer list rows,
  * and a compact connection banner driven by REST query state.
+ * Phase 06: Connection banner augmented with SSE live-update status.
  */
 
 // ---------------------------------------------------------------------------
@@ -82,7 +85,10 @@ function threadMatchesFilter(thread: ThreadListItem, filter: string): boolean {
 // ---------------------------------------------------------------------------
 
 type ConnectionStatus =
+  | "live-connected"
   | "connected"
+  | "live-reconnecting"
+  | "live-error"
   | "auth-failed"
   | "server-unreachable"
   | "timeout"
@@ -90,19 +96,35 @@ type ConnectionStatus =
   | "unknown-error"
   | "idle";
 
+import type { SseStatus } from "@/src/hooks/useSseConnection";
+
 function deriveConnectionStatus(
   isError: boolean,
   error: Error | null,
-  hasData: boolean
+  hasData: boolean,
+  sseStatus: SseStatus
 ): ConnectionStatus {
-  if (!isError) {
-    return hasData ? "connected" : "idle";
+  // REST errors take priority — surface the actionable problem first
+  if (isError) {
+    if (error instanceof NoServerUrlError) return "configure-server";
+    if (error instanceof UnauthorizedError) return "auth-failed";
+    if (error instanceof ServerUnreachableError) return "server-unreachable";
+    if (error instanceof RequestTimeoutError) return "timeout";
+    return "unknown-error";
   }
-  if (error instanceof NoServerUrlError) return "configure-server";
-  if (error instanceof UnauthorizedError) return "auth-failed";
-  if (error instanceof ServerUnreachableError) return "server-unreachable";
-  if (error instanceof RequestTimeoutError) return "timeout";
-  return "unknown-error";
+
+  // SSE status — show live connection health when REST is working
+  if (sseStatus === "connected") {
+    return "live-connected";
+  }
+  if (sseStatus === "reconnecting") {
+    return "live-reconnecting";
+  }
+  if (sseStatus === "error") {
+    return "live-error";
+  }
+
+  return hasData ? "connected" : "idle";
 }
 
 function connectionBannerProps(status: ConnectionStatus): {
@@ -110,8 +132,14 @@ function connectionBannerProps(status: ConnectionStatus): {
   label: string;
 } | null {
   switch (status) {
+    case "live-connected":
+      return { color: "#34C759", label: "Live — connected" };
     case "connected":
       return { color: "#34C759", label: "Connected" };
+    case "live-reconnecting":
+      return { color: "#FF9500", label: "Live updates reconnecting…" };
+    case "live-error":
+      return { color: "#FF9500", label: "Live updates disconnected — pull to refresh" };
     case "auth-failed":
       return { color: "#FF3B30", label: "Auth failed — check your token in Settings" };
     case "server-unreachable":
@@ -239,6 +267,9 @@ export default function ThreadsScreen() {
     refetch,
   } = useThreads();
 
+  // SSE live-update connection status for banner augmentation
+  const { status: sseStatus } = useLiveUpdates();
+
   const [filter, setFilter] = useState("");
 
   const filteredThreads = useMemo(() => {
@@ -248,7 +279,7 @@ export default function ThreadsScreen() {
 
   const hasData = !!(sortedThreads && sortedThreads.length > 0);
   const hasFilter = filter.trim().length > 0;
-  const connectionStatus = deriveConnectionStatus(isError, error, hasData);
+  const connectionStatus = deriveConnectionStatus(isError, error, hasData, sseStatus);
 
   // Full-screen spinner only on first load (no cached data yet).
   if (isFirstLoad) {

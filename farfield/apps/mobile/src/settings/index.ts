@@ -6,4 +6,10 @@
  */
 export type { ConnectionSettings } from "./types";
 export { DEFAULT_SETTINGS } from "./types";
-export { loadSettings, saveSettings, clearSettings } from "./storage";
+export {
+  loadSettings,
+  saveSettings,
+  saveSettingsAndNotify,
+  clearSettings,
+  subscribeSettingsChanges,
+} from "./storage";

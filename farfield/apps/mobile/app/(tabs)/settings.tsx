@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 
-import { loadSettings, saveSettings } from "@/src/settings";
+import { loadSettings, saveSettingsAndNotify } from "@/src/settings";
 
 /**
  * Settings screen — Tab 3
@@ -57,7 +57,7 @@ export default function SettingsScreen() {
 
     setSaving(true);
     try {
-      await saveSettings({
+      await saveSettingsAndNotify({
         serverUrl: trimmedUrl,
         authToken: trimmedToken,
       });
