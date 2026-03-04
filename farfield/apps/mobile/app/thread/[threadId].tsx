@@ -1,18 +1,34 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useState, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 
 import { useThread } from "@/src/hooks/useThread";
+import { useSendMessage } from "@/src/hooks/useThreadMutations";
 import type { PendingApproval } from "@/src/api/approvals";
 import { FarfieldClientError } from "@/src/api/errors";
 import type { ThreadDetailEnvelope } from "@/src/api/threads";
 
 /**
- * Thread Detail screen
+ * Thread Detail screen — MVP chat surface (Phase 05)
  *
- * Phase 04: reads GET /api/threads/:id and GET /api/threads/:id/pending-approvals
- * via the useThread() hook. Renders conversation history and pending approvals
- * in read-only mode — no composer, interrupt, or approve/deny buttons yet
- * (those belong to Phase 05).
+ * Reads GET /api/threads/:id and GET /api/threads/:id/pending-approvals via
+ * useThread(). Renders a scrollable conversation history with pull-to-refresh,
+ * an always-visible message composer wired to useSendMessage(), and pending
+ * approvals read-out below the turns.
+ *
+ * Intentionally simple: plain text only, monospaced for code-like content.
+ * No markdown rendering, syntax highlighting, or collaboration-mode controls.
  */
 
 // ---------------------------------------------------------------------------
@@ -53,6 +69,13 @@ function extractTurnText(turn: ThreadDetailEnvelope["thread"]["turns"][number]):
   return parts.join("\n\n").trim();
 }
 
+/** True for turns that originated from the local user. */
+function isUserTurn(turn: ThreadDetailEnvelope["thread"]["turns"][number]): boolean {
+  return turn.items.some(
+    (item) => item.type === "userMessage" || item.type === "steeringUserMessage"
+  );
+}
+
 function approvalTypeLabel(type: PendingApproval["type"]): string {
   switch (type) {
     case "command":
@@ -68,15 +91,20 @@ function approvalTypeLabel(type: PendingApproval["type"]): string {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function TurnCard({ turn, index }: { turn: ThreadDetailEnvelope["thread"]["turns"][number]; index: number }) {
+type Turn = ThreadDetailEnvelope["thread"]["turns"][number];
+
+function TurnCard({ turn }: { turn: Turn }) {
   const text = extractTurnText(turn);
   const startedAt =
     typeof turn.turnStartedAtMs === "number" ? turn.turnStartedAtMs : undefined;
+  const fromUser = isUserTurn(turn);
 
   return (
-    <View style={styles.turnCard}>
+    <View style={[styles.turnCard, fromUser ? styles.turnCardUser : styles.turnCardAgent]}>
       <View style={styles.turnCardHeader}>
-        <Text style={styles.turnLabel}>Turn {index + 1}</Text>
+        <Text style={[styles.turnRole, fromUser ? styles.turnRoleUser : styles.turnRoleAgent]}>
+          {fromUser ? "You" : "Agent"}
+        </Text>
         <View style={styles.turnMeta}>
           {startedAt ? (
             <Text style={styles.turnTime}>{formatRelativeTime(startedAt)}</Text>
@@ -122,11 +150,92 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
         <Text style={styles.approvalReason}>{String(approval.detail.reason)}</Text>
       ) : null}
       <Text style={styles.approvalNote}>
-        Approve/deny controls available in Phase 05.
+        Approve/deny controls available in Phase 06.
       </Text>
     </View>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Composer
+// ---------------------------------------------------------------------------
+
+interface ComposerProps {
+  threadId: string;
+  onSent: () => void;
+}
+
+function Composer({ threadId, onSent }: ComposerProps) {
+  const [draft, setDraft] = useState("");
+  const sendMutation = useSendMessage();
+  const isPending = sendMutation.isPending;
+
+  function handleSend() {
+    const text = draft.trim();
+    if (!text || isPending) return;
+
+    sendMutation.mutate(
+      { threadId, body: { text } },
+      {
+        onSuccess: () => {
+          setDraft("");
+          onSent();
+        },
+      }
+    );
+  }
+
+  return (
+    <View style={styles.composerContainer}>
+      {sendMutation.isError ? (
+        <Text style={styles.sendError} numberOfLines={2}>
+          {sendMutation.error instanceof FarfieldClientError
+            ? sendMutation.error.message
+            : "Failed to send. Please try again."}
+        </Text>
+      ) : null}
+      <View style={styles.composerRow}>
+        <TextInput
+          style={styles.composerInput}
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Message…"
+          placeholderTextColor="#C7C7CC"
+          multiline
+          maxLength={4000}
+          editable={!isPending}
+          returnKeyType="default"
+          blurOnSubmit={false}
+          onSubmitEditing={handleSend}
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, (!draft.trim() || isPending) && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={!draft.trim() || isPending}
+          accessibilityLabel="Send message"
+          accessibilityRole="button"
+        >
+          {isPending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.sendButtonText}>Send</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen list item types (module-level so they can be referenced by useRef)
+// ---------------------------------------------------------------------------
+
+type ListItem =
+  | { kind: "turn"; turn: Turn }
+  | { kind: "approval"; approval: PendingApproval }
+  | { kind: "empty-turns" }
+  | { kind: "empty-approvals" }
+  | { kind: "approvals-header" };
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -134,11 +243,24 @@ function ApprovalCard({ approval }: { approval: PendingApproval }) {
 
 export default function ThreadDetailScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const flatListRef = useRef<FlatList<ListItem>>(null);
 
-  const { threadDetail, pendingApprovals, isLoading, isError, error } = useThread(
-    threadId ?? ""
-  );
+  const {
+    threadDetail,
+    pendingApprovals,
+    isLoading,
+    isRefreshing,
+    isError,
+    error,
+    refetch,
+  } = useThread(threadId ?? "");
 
+  // Scroll to bottom helper — used after a successful send
+  function scrollToBottom() {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  }
+
+  // Initial full-screen load
   if (isLoading) {
     return (
       <View style={styles.centeredContainer}>
@@ -148,38 +270,92 @@ export default function ThreadDetailScreen() {
     );
   }
 
-  if (isError) {
+  // Error with no cached data
+  if (isError && !threadDetail) {
     const message =
       error instanceof FarfieldClientError
         ? error.message
         : (error?.message ?? "An unknown error occurred.");
 
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.label}>Thread ID</Text>
-          <Text style={styles.threadId}>{threadId}</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.errorScreen}>
+          <View style={styles.header}>
+            <Text style={styles.label}>Thread ID</Text>
+            <Text style={styles.threadId}>{threadId}</Text>
+          </View>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Could not load thread</Text>
+            <Text style={styles.errorBody}>{message}</Text>
+          </View>
         </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Could not load thread</Text>
-          <Text style={styles.errorBody}>{message}</Text>
-        </View>
-      </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   const thread = threadDetail?.thread;
-  const turns = thread?.turns ?? [];
+  const turns: Turn[] = thread?.turns ?? [];
   const agentId = threadDetail?.agentId;
-
   const title =
     typeof thread?.title === "string" && thread.title.length > 0
       ? thread.title
       : null;
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
+  // Build FlatList items: turns first, then approval cards, then empty states
+  const listItems: ListItem[] = [];
+
+  if (turns.length === 0) {
+    listItems.push({ kind: "empty-turns" });
+  } else {
+    for (const turn of turns) {
+      listItems.push({ kind: "turn", turn });
+    }
+  }
+
+  listItems.push({ kind: "approvals-header" });
+
+  if (pendingApprovals.length === 0) {
+    listItems.push({ kind: "empty-approvals" });
+  } else {
+    for (const approval of pendingApprovals) {
+      listItems.push({ kind: "approval", approval });
+    }
+  }
+
+  function renderItem({ item }: { item: ListItem }) {
+    switch (item.kind) {
+      case "turn":
+        return <TurnCard turn={item.turn} />;
+      case "approval":
+        return <ApprovalCard approval={item.approval} />;
+      case "empty-turns":
+        return (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No conversation turns yet.</Text>
+          </View>
+        );
+      case "approvals-header":
+        return (
+          <Text style={styles.sectionTitle}>
+            Pending Approvals
+            {pendingApprovals.length > 0 ? ` (${pendingApprovals.length})` : ""}
+          </Text>
+        );
+      case "empty-approvals":
+        return (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No pending approvals.</Text>
+          </View>
+        );
+    }
+  }
+
+  const ListHeader = (
+    <View>
+      {/* Thread header metadata */}
       <View style={styles.header}>
         {title ? <Text style={styles.threadTitle}>{title}</Text> : null}
         <Text style={styles.label}>Thread ID</Text>
@@ -192,42 +368,43 @@ export default function ThreadDetailScreen() {
         ) : null}
       </View>
 
-      {/* Conversation turns */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Conversation
-          {turns.length > 0 ? ` (${turns.length} turn${turns.length === 1 ? "" : "s"})` : ""}
-        </Text>
-        {turns.length > 0 ? (
-          turns.map((turn, i) => (
-            <TurnCard key={turn.id ?? `turn-${i}`} turn={turn} index={i} />
-          ))
-        ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No conversation turns yet.</Text>
-          </View>
-        )}
-      </View>
+      {/* Conversation section header */}
+      <Text style={styles.sectionTitle}>
+        Conversation
+        {turns.length > 0 ? ` (${turns.length} turn${turns.length === 1 ? "" : "s"})` : ""}
+      </Text>
+    </View>
+  );
 
-      {/* Pending approvals */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          Pending Approvals
-          {pendingApprovals.length > 0
-            ? ` (${pendingApprovals.length})`
-            : ""}
-        </Text>
-        {pendingApprovals.length > 0 ? (
-          pendingApprovals.map((approval) => (
-            <ApprovalCard key={approval.requestId} approval={approval} />
-          ))
-        ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No pending approvals.</Text>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+    >
+      <FlatList
+        ref={flatListRef}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        data={listItems}
+        keyExtractor={(item, i) => {
+          if (item.kind === "turn") return item.turn.id ?? `turn-${i}`;
+          if (item.kind === "approval") return `approval-${item.approval.requestId}`;
+          return item.kind;
+        }}
+        renderItem={renderItem}
+        ListHeaderComponent={ListHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refetch}
+            tintColor="#007AFF"
+          />
+        }
+        showsVerticalScrollIndicator
+      />
+      <Composer threadId={threadId ?? ""} onSent={scrollToBottom} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -236,13 +413,17 @@ export default function ThreadDetailScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
     backgroundColor: "#F2F2F7",
   },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+  list: {
+    flex: 1,
+    backgroundColor: "#F2F2F7",
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 8,
   },
   centeredContainer: {
     flex: 1,
@@ -255,11 +436,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8E8E93",
   },
+  errorScreen: {
+    flex: 1,
+    padding: 16,
+  },
   header: {
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   threadTitle: {
     fontSize: 18,
@@ -287,45 +472,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1C1C1E",
   },
-  section: {
-    marginBottom: 20,
-  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#1C1C1E",
-    marginBottom: 12,
+    marginBottom: 10,
+    marginTop: 4,
   },
+  // Turn cards — differentiate user vs agent
   turnCard: {
-    backgroundColor: "#fff",
     borderRadius: 10,
-    padding: 14,
+    padding: 12,
     marginBottom: 8,
+  },
+  turnCardUser: {
+    backgroundColor: "#D6EDFF",
+    alignSelf: "flex-end",
+    maxWidth: "90%",
+  },
+  turnCardAgent: {
+    backgroundColor: "#fff",
+    alignSelf: "flex-start",
+    maxWidth: "90%",
+    width: "100%",
   },
   turnCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  turnLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#8E8E93",
+  turnRole: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  turnRoleUser: {
+    color: "#0A84FF",
+  },
+  turnRoleAgent: {
+    color: "#636366",
   },
   turnMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   turnTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#C7C7CC",
   },
   turnStatusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   statusCompleted: {
     backgroundColor: "#D1F0D5",
@@ -337,7 +537,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F2F2F7",
   },
   turnStatusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
     color: "#3A3A3C",
   },
@@ -351,6 +551,7 @@ const styles = StyleSheet.create({
     color: "#C7C7CC",
     fontStyle: "italic",
   },
+  // Approval cards
   approvalCard: {
     backgroundColor: "#FFF8EC",
     borderRadius: 10,
@@ -400,16 +601,19 @@ const styles = StyleSheet.create({
     color: "#C7C7CC",
     marginTop: 4,
   },
+  // Empty states
   emptyCard: {
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 16,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
     color: "#8E8E93",
     fontStyle: "italic",
   },
+  // Error state
   errorContainer: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -425,5 +629,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#3A3A3C",
     lineHeight: 20,
+  },
+  // Composer
+  composerContainer: {
+    backgroundColor: "#fff",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#C6C6C8",
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === "ios" ? 28 : 12,
+  },
+  composerRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
+    fontSize: 15,
+    color: "#1C1C1E",
+    lineHeight: 20,
+  },
+  sendButton: {
+    backgroundColor: "#007AFF",
+    borderRadius: 18,
+    height: 36,
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  sendButtonDisabled: {
+    backgroundColor: "#C7C7CC",
+  },
+  sendButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  sendError: {
+    fontSize: 12,
+    color: "#FF3B30",
+    marginBottom: 6,
+    paddingHorizontal: 4,
   },
 });
