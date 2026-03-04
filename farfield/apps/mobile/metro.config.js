@@ -29,4 +29,8 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
+// Enable package.json "exports" field resolution so Metro can resolve
+// @farfield/protocol which uses "exports" instead of "main"
+config.resolver.unstable_enablePackageExports = true;
+
 module.exports = config;
