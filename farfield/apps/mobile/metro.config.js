@@ -1,5 +1,5 @@
 /**
- * Metro configuration for @farfield/mobile (Expo SDK 53).
+ * Metro configuration for @farfield/mobile (Expo SDK 54).
  *
  * Adds monorepo workspace support so that Metro can resolve
  * @farfield/protocol from the packages/ directory without errors.
@@ -19,8 +19,8 @@ const monorepoRoot = path.resolve(__dirname, "../..");
 
 const config = getDefaultConfig(__dirname);
 
-// Watch the entire monorepo so Metro picks up changes in workspace packages
-config.watchFolders = [monorepoRoot];
+// Keep Expo defaults and add monorepo root so Metro picks up workspace changes.
+config.watchFolders = Array.from(new Set([...(config.watchFolders || []), monorepoRoot]));
 
 // Allow Metro to resolve modules from the workspace root node_modules
 // (for hoisted packages) in addition to the app's own node_modules
