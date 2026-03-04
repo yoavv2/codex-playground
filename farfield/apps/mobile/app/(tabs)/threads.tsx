@@ -4,6 +4,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -11,13 +12,20 @@ import { router } from "expo-router";
 
 import { useThreads } from "@/src/hooks/useThreads";
 import type { ThreadListItem } from "@/src/api/threads";
-import { FarfieldClientError, NoServerUrlError } from "@/src/api/errors";
+import {
+  FarfieldClientError,
+  NoServerUrlError,
+  UnauthorizedError,
+  ServerUnreachableError,
+  RequestTimeoutError,
+} from "@/src/api/errors";
+import { useState, useMemo } from "react";
 
 /**
  * Threads screen — Tab 2
  *
- * Phase 04: fetches the real thread list from GET /api/threads via useThreads().
- * Read-only view — no composer or action buttons yet (Phase 05).
+ * Phase 05: MVP browse surface with local search, richer list rows,
+ * and a compact connection banner driven by REST query state.
  */
 
 // ---------------------------------------------------------------------------
@@ -25,11 +33,9 @@ import { FarfieldClientError, NoServerUrlError } from "@/src/api/errors";
 // ---------------------------------------------------------------------------
 
 function getThreadTitle(thread: ThreadListItem): string {
-  // Prefer an explicit title field (present on ThreadConversationState items).
   if ("title" in thread && typeof thread.title === "string" && thread.title.length > 0) {
     return thread.title;
   }
-  // Fall back to thread id so there is always something to display.
   return thread.id;
 }
 
@@ -38,6 +44,13 @@ function getThreadPreview(thread: ThreadListItem): string {
     return thread.preview;
   }
   return "";
+}
+
+function getThreadSource(thread: ThreadListItem): string {
+  if ("source" in thread && typeof thread.source === "string" && thread.source.length > 0) {
+    return thread.source;
+  }
+  return "codex";
 }
 
 function formatRelativeTime(epochMs: number | undefined): string {
@@ -51,20 +64,91 @@ function formatRelativeTime(epochMs: number | undefined): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function errorMessage(error: Error | null): string {
-  if (!error) return "An unknown error occurred.";
-  if (error instanceof NoServerUrlError) {
-    return "No server URL configured. Please set one in Settings.";
+/**
+ * Returns true if `thread` matches the given filter string.
+ * Matches against title, id, and preview (case-insensitive).
+ */
+function threadMatchesFilter(thread: ThreadListItem, filter: string): boolean {
+  if (!filter.trim()) return true;
+  const q = filter.toLowerCase();
+  const title = getThreadTitle(thread).toLowerCase();
+  const preview = getThreadPreview(thread).toLowerCase();
+  const id = thread.id.toLowerCase();
+  return title.includes(q) || id.includes(q) || preview.includes(q);
+}
+
+// ---------------------------------------------------------------------------
+// Connection banner helpers
+// ---------------------------------------------------------------------------
+
+type ConnectionStatus =
+  | "connected"
+  | "auth-failed"
+  | "server-unreachable"
+  | "timeout"
+  | "configure-server"
+  | "unknown-error"
+  | "idle";
+
+function deriveConnectionStatus(
+  isError: boolean,
+  error: Error | null,
+  hasData: boolean
+): ConnectionStatus {
+  if (!isError) {
+    return hasData ? "connected" : "idle";
   }
-  if (error instanceof FarfieldClientError) {
-    return error.message;
+  if (error instanceof NoServerUrlError) return "configure-server";
+  if (error instanceof UnauthorizedError) return "auth-failed";
+  if (error instanceof ServerUnreachableError) return "server-unreachable";
+  if (error instanceof RequestTimeoutError) return "timeout";
+  return "unknown-error";
+}
+
+function connectionBannerProps(status: ConnectionStatus): {
+  color: string;
+  label: string;
+} | null {
+  switch (status) {
+    case "connected":
+      return { color: "#34C759", label: "Connected" };
+    case "auth-failed":
+      return { color: "#FF3B30", label: "Auth failed — check your token in Settings" };
+    case "server-unreachable":
+      return { color: "#FF9500", label: "Server unreachable — check URL and network" };
+    case "timeout":
+      return { color: "#FF9500", label: "Request timed out — server may be slow" };
+    case "configure-server":
+      return { color: "#8E8E93", label: "No server configured — go to Settings" };
+    case "unknown-error":
+      return { color: "#FF3B30", label: "Could not reach server" };
+    case "idle":
+      return null;
   }
-  return error.message;
 }
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function ConnectionBanner({ status }: { status: ConnectionStatus }) {
+  const props = connectionBannerProps(status);
+  if (!props) return null;
+
+  return (
+    <View style={[styles.banner, { backgroundColor: props.color }]}>
+      <Text style={styles.bannerText}>{props.label}</Text>
+    </View>
+  );
+}
+
+function SourceBadge({ source }: { source: string }) {
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>{source}</Text>
+    </View>
+  );
+}
 
 function ThreadItem({ thread }: { thread: ThreadListItem }) {
   function handlePress() {
@@ -73,6 +157,7 @@ function ThreadItem({ thread }: { thread: ThreadListItem }) {
 
   const title = getThreadTitle(thread);
   const preview = getThreadPreview(thread);
+  const source = getThreadSource(thread);
   const updatedAt = "updatedAt" in thread ? (thread.updatedAt as number | undefined) : undefined;
 
   return (
@@ -90,14 +175,17 @@ function ThreadItem({ thread }: { thread: ThreadListItem }) {
           {preview}
         </Text>
       ) : null}
-      <Text style={styles.itemId} numberOfLines={1}>
-        {thread.id}
-      </Text>
+      <View style={styles.itemFooter}>
+        <Text style={styles.itemId} numberOfLines={1}>
+          {thread.id}
+        </Text>
+        <SourceBadge source={source} />
+      </View>
     </TouchableOpacity>
   );
 }
 
-function EmptyState() {
+function NoThreadsEmptyState() {
   return (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyTitle}>No threads yet</Text>
@@ -108,11 +196,30 @@ function EmptyState() {
   );
 }
 
+function NoResultsEmptyState({ filter }: { filter: string }) {
+  return (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>No results</Text>
+      <Text style={styles.emptyBody}>
+        No threads match &ldquo;{filter}&rdquo;. Try a different search term.
+      </Text>
+    </View>
+  );
+}
+
 function ErrorState({ error }: { error: Error | null }) {
+  function getMessage() {
+    if (!error) return "An unknown error occurred.";
+    if (error instanceof NoServerUrlError) {
+      return "No server URL configured. Please set one in Settings.";
+    }
+    return error.message;
+  }
+
   return (
     <View style={styles.errorContainer}>
       <Text style={styles.errorTitle}>Could not load threads</Text>
-      <Text style={styles.errorBody}>{errorMessage(error)}</Text>
+      <Text style={styles.errorBody}>{getMessage()}</Text>
     </View>
   );
 }
@@ -122,9 +229,29 @@ function ErrorState({ error }: { error: Error | null }) {
 // ---------------------------------------------------------------------------
 
 export default function ThreadsScreen() {
-  const { threads, isLoading, isEmpty, isError, error, refetch } = useThreads();
+  const {
+    sortedThreads,
+    isFirstLoad,
+    isRefreshing,
+    isEmpty,
+    isError,
+    error,
+    refetch,
+  } = useThreads();
 
-  if (isLoading) {
+  const [filter, setFilter] = useState("");
+
+  const filteredThreads = useMemo(() => {
+    if (!sortedThreads) return undefined;
+    return sortedThreads.filter((t) => threadMatchesFilter(t, filter));
+  }, [sortedThreads, filter]);
+
+  const hasData = !!(sortedThreads && sortedThreads.length > 0);
+  const hasFilter = filter.trim().length > 0;
+  const connectionStatus = deriveConnectionStatus(isError, error, hasData);
+
+  // Full-screen spinner only on first load (no cached data yet).
+  if (isFirstLoad) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -133,38 +260,75 @@ export default function ThreadsScreen() {
     );
   }
 
-  if (isError) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Threads</Text>
-        <ErrorState error={error} />
-      </View>
-    );
+  // Determine empty list component based on context.
+  function renderEmptyList() {
+    if (isEmpty && !hasFilter) return <NoThreadsEmptyState />;
+    if (hasFilter && filteredThreads?.length === 0) {
+      return <NoResultsEmptyState filter={filter} />;
+    }
+    return null;
   }
+
+  const isListEmpty =
+    (isEmpty && !hasFilter) || (hasFilter && (filteredThreads?.length ?? 0) === 0);
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <Text style={styles.title}>Threads</Text>
-      {threads && threads.length > 0 ? (
-        <Text style={styles.subtitle}>
-          {threads.length} {threads.length === 1 ? "thread" : "threads"}
-        </Text>
-      ) : null}
-      <FlatList
-        data={threads ?? []}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ThreadItem thread={item} />}
-        contentContainerStyle={isEmpty ? styles.emptyList : styles.list}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={isEmpty ? <EmptyState /> : null}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
-            tintColor="#007AFF"
+
+      {/* Connection banner — compact REST-derived status above the list */}
+      <ConnectionBanner status={connectionStatus} />
+
+      {/* Error state (no data + error) */}
+      {isError && !hasData ? (
+        <ErrorState error={error} />
+      ) : (
+        <>
+          {/* Search bar */}
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search threads…"
+              placeholderTextColor="#8E8E93"
+              value={filter}
+              onChangeText={setFilter}
+              clearButtonMode="while-editing"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+          </View>
+
+          {/* Thread count / filter summary */}
+          {sortedThreads && sortedThreads.length > 0 ? (
+            <Text style={styles.subtitle}>
+              {hasFilter
+                ? `${filteredThreads?.length ?? 0} of ${sortedThreads.length} ${
+                    sortedThreads.length === 1 ? "thread" : "threads"
+                  }`
+                : `${sortedThreads.length} ${sortedThreads.length === 1 ? "thread" : "threads"}`}
+            </Text>
+          ) : null}
+
+          <FlatList
+            data={filteredThreads ?? []}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <ThreadItem thread={item} />}
+            contentContainerStyle={isListEmpty ? styles.emptyList : styles.list}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={renderEmptyList()}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={refetch}
+                tintColor="#007AFF"
+              />
+            }
           />
-        }
-      />
+        </>
+      )}
     </View>
   );
 }
@@ -177,7 +341,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F2F2F7",
-    padding: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
   },
   centeredContainer: {
     flex: 1,
@@ -189,18 +354,46 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 8,
     color: "#1C1C1E",
   },
   subtitle: {
     fontSize: 13,
     color: "#8E8E93",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   loadingText: {
     fontSize: 14,
     color: "#8E8E93",
   },
+  // Connection banner
+  banner: {
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    alignSelf: "flex-start",
+  },
+  bannerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  // Search
+  searchRow: {
+    marginBottom: 8,
+  },
+  searchInput: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: "#1C1C1E",
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  // List
   list: {
     paddingBottom: 20,
   },
@@ -237,10 +430,31 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 6,
   },
+  itemFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
   itemId: {
     fontSize: 11,
     color: "#C7C7CC",
     fontFamily: "monospace" as const,
+    flex: 1,
+    marginRight: 8,
+  },
+  // Source badge
+  badge: {
+    backgroundColor: "#E5E5EA",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#3A3A3C",
+    textTransform: "lowercase" as const,
   },
   separator: {
     height: 10,
