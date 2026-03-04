@@ -5,19 +5,19 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-03-04T18:23:00Z
-- Git Branch: codex/04-build-typed-mobile-api-client
+- Last Updated: 2026-03-04T18:52:00Z
+- Git Branch: codex/05-mvp-ui-threads-and-chat
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
-- Current Phase: 04 - Build Typed Mobile API Client
-- Progress: 3 / 9 phases complete (33%) — Phase 04 plans 01-03 complete, Phase 04 complete
+- Current Phase: 05 - MVP UI - Threads and Chat
+- Progress: 3 / 9 phases complete (33%) — Phase 05 plans 01-02 complete, plan 03 next
 
 ## Current Position
 
-- Status: 04-03 complete — all Phase 04 plans executed. Write-side client modules (messages, thread-actions), mutation hooks with cache invalidation (useThreadMutations), and SSE subscription helper (events, useFarfieldEvents) all implemented. Phase 04 complete; Phase 05 ready to start.
-- Next Action: Execute Phase 05 (MVP UI - Threads and Chat)
+- Status: 05-02 complete — Thread detail route converted to MVP chat surface: useThread exposes isRefreshing (background-safe) vs isLoading (initial gate); FlatList with RefreshControl replaces ScrollView; user/agent bubble differentiation; Composer with useSendMessage backed TextInput+Send; inline error feedback; KeyboardAvoidingView for stable bottom layout. Phase 05 plans 01-02 done; plan 03 ready to start.
+- Next Action: Execute Phase 05 plan 03 (Thread actions — interrupt + approval controls)
 - Blocking Issues: none
-- Active Plan File: `.planning/phases/04-build-typed-mobile-api-client/04-03-PLAN.md` (complete)
-- Active Summary File: `.planning/phases/04-build-typed-mobile-api-client/04-03-SUMMARY.md`
+- Active Plan File:  (complete)
+- Active Summary File: 
 
 ## Roadmap Snapshot
 
@@ -27,7 +27,7 @@
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
 | 03 | Create Expo App Skeleton | Milestone 2 | DONE | 3 | 3 |
 | 04 | Build Typed Mobile API Client | Milestone 2 | DONE | 3 | 3 |
-| 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
+| 05 | MVP UI - Threads and Chat | Milestone 2 | IN_PROGRESS | 2 | 2 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
 | 07 | Collaboration Mode + User Input Requests | Milestone 3 | TODO | 0 | 0 |
 | 08 | UX Polish and Platform Readiness | Milestone 3 | TODO | 0 | 0 |
@@ -70,10 +70,17 @@
 - SSE auth uses Authorization: Bearer header only; no query-param fallback since react-native-sse sends custom headers on all supported platforms.
 - Reconnect policy deferred to Phase 06; subscribeEvents() relies on server-driven retry:1000.
 - `handlersRef` pattern in useFarfieldEvents keeps useEffect stable while allowing handler updates without re-subscribing.
+- `isFirstLoad` = `query.isLoading && !query.data` (true only before first successful fetch); `isRefreshing` = `query.isFetching && !query.isLoading` (background/manual refetch with existing data) — use isFirstLoad for full-screen spinner gating, isRefreshing for RefreshControl.
+- Connection banner on Threads tab uses only REST-derived query state (typed FarfieldClientError instanceof checks); Phase 06 owns SSE/live connection lifecycle and reconnect banner states.
+- Thread list search filter matches title, id, and preview; empty states split between no-threads-on-server and no-results-for-filter.
+- Thread source badge defaults to 'codex' when source field is absent.
+- isRefreshing in useThread: isFetching && \!isLoading — background refetches from cache invalidation do not trigger full-screen loading gate; distinct from isLoading (initial load only).
+- ListItem discriminated union defined at module scope in thread detail screen — required to satisfy useRef<FlatList<ListItem>> TypeScript generic constraint; local type declaration inside function body cannot be referenced at hook call site.
+- Thread detail Composer: draft cleared on mutation success; scrollToEnd called via FlatList ref after successful send.
 
 ## Pending Decisions (Current)
 
-- None blocking Phase 04 start.
+- None blocking Phase 05 plan 03 start.
 
 ## Deferred Decisions (Intentional)
 
@@ -130,6 +137,7 @@
 - 2026-03-04: Executed `04-01-PLAN.md` — added @tanstack/react-query and @farfield/protocol workspace deps; created metro.config.js with watchFolders for monorepo resolution; built fetchJson() transport with typed error hierarchy; wrapped app root in QueryClientProvider; added queryKeys factory for threads/approvals/agents/collaborationModes/health; typecheck/lint/Metro all pass (`8bbcaec`, `2285e36`, `7a937e2`).
 - 2026-03-04: Executed `04-02-PLAN.md` — built read-side API modules (threads, approvals, agents, collaboration) with Zod envelope validation; created useThreads() and useThread() TanStack Query hooks; replaced Phase 03 placeholder thread UI with live data; typecheck/lint/Metro all pass (`5aaed58`, `25670e5`, `8afee6f`).
 - 2026-03-04: Executed `04-03-PLAN.md` — implemented write-side client modules (messages.ts, thread-actions.ts), TanStack Query mutation hooks with cache invalidation (useThreadMutations.ts), and SSE subscription primitive (events.ts, useFarfieldEvents.ts); fixed ZodSchema<T>/ZodIntersection type bugs from 04-02 read-side modules; typecheck/lint pass (`5aaed58`, `70041da`, `e08d607`). Phase 04 complete.
+- 2026-03-04: Executed `05-01-PLAN.md` — upgraded Threads tab to MVP browse surface with local search/filter (title/id/preview), updatedAt-sorted list, non-blocking pull-to-refresh (isFirstLoad/isRefreshing distinction in useThreads), source badges, split empty states, and REST-derived connection banner (5 status variants); typecheck/lint/Metro all pass (`3f15b1a`, `642daa7`).
 
 ## Notes for Future Commands
 
@@ -142,3 +150,4 @@
 - Phase 04 plan 01 complete: `src/api/client.ts` (fetchJson), `src/api/errors.ts` (typed errors), `src/api/queryKeys.ts` (key factory), `app/_layout.tsx` (QueryClientProvider), `metro.config.js` (workspace Metro config).
 - Phase 04 complete (plans 01-03): full client surface ready for Phase 05. Read-side: threads.ts, agents.ts, approvals.ts, collaboration.ts + useThreads/useThread hooks. Write-side: messages.ts, thread-actions.ts + useThreadMutations.ts. SSE: events.ts + useFarfieldEvents.ts.
 - Phase 05 entry point: import mutation hooks from `src/hooks/useThreadMutations`, SSE hook from `src/hooks/useFarfieldEvents`, read hooks from `src/hooks/useThreads` and `src/hooks/useApprovals`.
+- Phase 05 plan 01 complete: `useThreads` now exports `sortedThreads`, `isFirstLoad`, `isRefreshing`. Threads tab has local search, source badge, split empty states, connection banner. Connection banner uses only REST-derived state; Phase 06 adds SSE/reconnect states.
