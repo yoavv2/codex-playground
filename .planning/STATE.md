@@ -5,7 +5,7 @@
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-02-27T19:25:00Z
+- Last Updated: 2026-03-04T18:09:24Z
 - Git Branch: main
 - Current Milestone: Milestone 2 - Mobile MVP Can Read, Send, and Approve
 - Current Phase: 04 - Build Typed Mobile API Client
@@ -13,11 +13,11 @@
 
 ## Current Position
 
-- Status: 03-03 complete — Phase 03 fully done; typed connection settings, SecureStore/AsyncStorage persistence, Settings screen with input fields, Connection screen with /api/health test action and color-coded status feedback; typecheck/lint/Metro all pass.
-- Next Action: `/gsd:plan-phase .planning/phases/04-build-typed-mobile-api-client/`
+- Status: 04-01 complete — fetchJson() authenticated transport, typed FarfieldClientError hierarchy, QueryClientProvider at app root, centralized queryKeys factory, Metro workspace config for @farfield/protocol; typecheck/lint/Metro all pass.
+- Next Action: Execute next plan in Phase 04 (endpoint-specific client hooks)
 - Blocking Issues: none
-- Active Plan File: none (Phase 03 complete; Phase 04 not yet planned)
-- Active Summary File: `.planning/phases/03-create-expo-app-skeleton/03-03-SUMMARY.md`
+- Active Plan File: `.planning/phases/04-build-typed-mobile-api-client/04-01-PLAN.md` (complete)
+- Active Summary File: `.planning/phases/04-build-typed-mobile-api-client/04-01-SUMMARY.md`
 
 ## Roadmap Snapshot
 
@@ -26,7 +26,7 @@
 | 01 | Prep and Decisions | Milestone 1 | DONE | 1 | 1 |
 | 02 | Harden Farfield for Remote Mobile Access | Milestone 1 | DONE | 2 | 2 |
 | 03 | Create Expo App Skeleton | Milestone 2 | DONE | 3 | 3 |
-| 04 | Build Typed Mobile API Client | Milestone 2 | TODO | 0 | 0 |
+| 04 | Build Typed Mobile API Client | Milestone 2 | IN PROGRESS | 1 | 1 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | TODO | 0 | 0 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | TODO | 0 | 0 |
 | 07 | Collaboration Mode + User Input Requests | Milestone 3 | TODO | 0 | 0 |
@@ -60,6 +60,10 @@
 - `@react-native-async-storage/async-storage` v3 API uses `removeMany` (not `multiRemove`).
 - `checkHealth()` passes auth token as Bearer header to support opt-in FARFIELD_REQUIRE_AUTH_FOR_HEALTH on the server side.
 - `useFocusEffect` used for Connection screen hydration so Settings tab changes are immediately reflected without global state management.
+- `fetchJson()` loads settings on every call (no singleton) for simplicity; react-query caches at the hook layer above.
+- QueryClient defaults: staleTime 30s, gcTime 5m, retry 2, refetchOnWindowFocus false — conservative for remote-control usage.
+- `queryKeys` factory uses const-as pattern for type-safe invalidation surface across all domain queries.
+- Metro config kept minimal: only watchFolders and nodeModulesPaths — no custom resolver transforms needed for @farfield/protocol.
 
 ## Pending Decisions (Current)
 
@@ -117,6 +121,7 @@
 - 2026-02-27: Executed `03-01-PLAN.md` — scaffolded `farfield/apps/mobile` as Expo SDK 53 + Expo Router workspace package; locked SSE library as `react-native-sse`; typecheck and lint pass; Metro starts in offline mode (`936330d`, `272ff65`).
 - 2026-02-27: Executed `03-02-PLAN.md` — built Expo Router tab navigator (Connection/Threads/Settings) with Thread Detail stack screen; all four Phase 03 screens reachable; typecheck/lint/Metro all pass (`a3e9637`, `2c6fed9`).
 - 2026-02-27: Executed `03-03-PLAN.md` — typed ConnectionSettings model, SecureStore/AsyncStorage persistence, Settings screen with TextInput fields and save feedback, Connection screen with /api/health Test Connection button and color-coded status; typecheck/lint/Metro all pass (`ea5a369`, `200a365`, `c4e4bfb`). Phase 03 complete.
+- 2026-03-04: Executed `04-01-PLAN.md` — added @tanstack/react-query and @farfield/protocol workspace deps; created metro.config.js with watchFolders for monorepo resolution; built fetchJson() transport with typed error hierarchy; wrapped app root in QueryClientProvider; added queryKeys factory for threads/approvals/agents/collaborationModes/health; typecheck/lint/Metro all pass (`8bbcaec`, `2285e36`, `7a937e2`).
 
 ## Notes for Future Commands
 
@@ -126,3 +131,4 @@
 - Farfield implementation target for Phase 03+: `/Users/yoavhevroni/Documents/dev/codex-playground/farfield`.
 - Active Farfield branch: `codex/phase-02-remote-hardening`.
 - Phase 04 entry point: `src/settings/loadSettings()` provides serverUrl+authToken; `src/api/` is the module home for API functions; thread screen skeletons have Phase 04 integration annotations.
+- Phase 04 plan 01 complete: `src/api/client.ts` (fetchJson), `src/api/errors.ts` (typed errors), `src/api/queryKeys.ts` (key factory), `app/_layout.tsx` (QueryClientProvider), `metro.config.js` (workspace Metro config).
