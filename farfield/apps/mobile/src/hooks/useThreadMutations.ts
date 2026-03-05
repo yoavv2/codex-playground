@@ -9,12 +9,14 @@
  *   useSendMessage()         — POST /api/threads/:id/messages
  *   useInterruptThread()     — POST /api/threads/:id/interrupt
  *   useSetCollaborationMode() — POST /api/threads/:id/collaboration-mode
+ *   useSubmitUserInput()     — POST /api/threads/:id/user-input
  *   useRespondToApproval()   — POST /api/threads/:id/pending-approvals/respond
  *
  * Cache invalidation rules (applied after each successful mutation):
  *   - Send message          → invalidate thread detail + thread list
  *   - Interrupt             → invalidate thread detail + thread list
  *   - Collaboration mode    → invalidate thread detail + collaboration modes
+ *   - User-input response   → invalidate thread detail + thread live-state
  *   - Approval response     → invalidate pending approvals + thread detail
  *
  * Error handling:
@@ -37,11 +39,14 @@ import {
 import {
   interruptThread,
   setCollaborationMode,
+  submitUserInput,
   respondToApproval,
   type InterruptBody,
   type InterruptResponse,
   type SetCollaborationModeBody,
   type SetCollaborationModeResponse,
+  type SubmitUserInputBody,
+  type SubmitUserInputResponse,
   type RespondToApprovalBody,
   type RespondToApprovalResponse,
 } from "@/src/api/thread-actions";
@@ -156,6 +161,39 @@ export function useSetCollaborationMode() {
       });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.collaborationModes.forThread(threadId),
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useSubmitUserInput
+// ---------------------------------------------------------------------------
+
+/** Arguments accepted by useSubmitUserInput's mutate function. */
+export interface SubmitUserInputArgs {
+  threadId: string;
+  body: SubmitUserInputBody;
+}
+
+/**
+ * Mutation hook for submitting answers to a pending request_user_input request.
+ *
+ * Invalidates on success:
+ *   - Thread detail (new turn/tool output may arrive after answer submission)
+ *   - Thread live-state (pending user-input request list changes)
+ */
+export function useSubmitUserInput() {
+  const queryClient = useQueryClient();
+
+  return useMutation<SubmitUserInputResponse, Error, SubmitUserInputArgs>({
+    mutationFn: ({ threadId, body }) => submitUserInput(threadId, body),
+    onSuccess: (_data, { threadId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.threads.detail(threadId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.liveState.forThread(threadId),
       });
     },
   });

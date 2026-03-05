@@ -4,6 +4,7 @@
  * Covers:
  *   - POST /api/threads/:id/interrupt
  *   - POST /api/threads/:id/collaboration-mode
+ *   - POST /api/threads/:id/user-input
  *   - POST /api/threads/:id/pending-approvals/respond
  *
  * All transport / auth / error normalisation is delegated to fetchJson() in
@@ -11,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { UserInputResponsePayloadSchema } from "@farfield/protocol";
 
 import { fetchJson } from "./client";
 
@@ -117,6 +119,54 @@ export async function setCollaborationMode(
       method: "POST",
       body,
       schema: SetCollaborationModeResponseSchema,
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// User input response
+// ---------------------------------------------------------------------------
+
+/** Mirror of server SubmitUserInputBodySchema. */
+const SubmitUserInputBodySchema = z
+  .object({
+    requestId: z.number().int().nonnegative(),
+    response: UserInputResponsePayloadSchema,
+    ownerClientId: z.string().optional(),
+  })
+  .strict();
+
+export type SubmitUserInputBody = z.infer<typeof SubmitUserInputBodySchema>;
+
+/** Validated user-input response envelope. */
+const SubmitUserInputResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    threadId: z.string(),
+    requestId: z.number().int().nonnegative(),
+    ownerClientId: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export type SubmitUserInputResponse = z.infer<typeof SubmitUserInputResponseSchema>;
+
+/**
+ * Submit an answer payload for a pending request_user_input prompt.
+ *
+ * @param threadId - Thread that owns the pending user-input request.
+ * @param body     - requestId, response payload, optional ownerClientId.
+ * @returns Validated server acknowledgement including thread/request IDs.
+ */
+export async function submitUserInput(
+  threadId: string,
+  body: SubmitUserInputBody
+): Promise<SubmitUserInputResponse> {
+  return fetchJson(
+    `/api/threads/${encodeURIComponent(threadId)}/user-input`,
+    {
+      method: "POST",
+      body,
+      schema: SubmitUserInputResponseSchema,
     }
   );
 }
