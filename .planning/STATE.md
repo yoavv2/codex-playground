@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-05T01:25:46Z"
+last_updated: "2026-03-05T09:00:00Z"
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 18
-  completed_plans: 17
+  total_plans: 21
+  completed_plans: 19
 ---
 
 # STATE
@@ -18,19 +18,19 @@ progress:
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-03-05T01:25:46Z
-- Git Branch: codex/07-phase-07
-- Current Milestone: Milestone 3 - Live Updates and Collaboration
+- Last Updated: 2026-03-05T09:00:00Z
+- Git Branch: codex/phase-08
+- Current Milestone: Milestone 3 - Live Sync, Modes, and Personal Deployment
 - Current Phase: 08 - UX Polish and Platform Readiness
-- Progress: 6 / 9 phases complete (67%) — Phase 07 complete (3 plans), Phase 08 next
+- Progress: 6 / 9 phases complete (67%) — Phase 08 in progress (3 plans, 2 summaries), manual UAT pending
 
 ## Current Position
 
-- Status: Phase 07 complete — data foundation for live-state/request_user_input (07-01), collaboration mode controls in thread detail (07-02), and pending user-input prompt response UX (07-03) are shipped. Thread detail now supports mode switching and request_user_input submission with typed mutation/query invalidation.
-- Next Action: Plan and execute Phase 08 — UX Polish and Platform Readiness
+- Status: Phase 08 implementation is underway — thread detail markdown/code rendering, copy actions, and approval approve/deny controls are shipped (08-01), plus Local/Tailscale preset profile switching with migration-safe storage and Connection-tab active-profile diagnostics (08-02). Phase 08 closeout now depends on manual iOS/Android UAT execution (08-03 checkpoint).
+- Next Action: Run `.planning/phases/08-ux-polish-and-platform-readiness/08-UAT.md` matrix on iOS and Android, then close 08-03 summary/state updates.
 - Blocking Issues: none
-- Active Plan File: .planning/phases/07-collaboration-mode-and-user-input-requests/07-03-PLAN.md (complete)
-- Active Summary File: .planning/phases/07-collaboration-mode-and-user-input-requests/07-03-SUMMARY.md
+- Active Plan File: .planning/phases/08-ux-polish-and-platform-readiness/08-03-PLAN.md (checkpoint pending)
+- Active Summary File: .planning/phases/08-ux-polish-and-platform-readiness/08-02-SUMMARY.md
 
 ## Roadmap Snapshot
 
@@ -43,7 +43,7 @@ progress:
 | 05 | MVP UI - Threads and Chat | Milestone 2 | IN_PROGRESS | 2 | 2 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | DONE | 3 | 3 |
 | 07 | Collaboration Mode + User Input Requests | Milestone 3 | DONE | 3 | 3 |
-| 08 | UX Polish and Platform Readiness | Milestone 3 | TODO | 0 | 0 |
+| 08 | UX Polish and Platform Readiness | Milestone 3 | IN_PROGRESS | 3 | 2 |
 | 09 | Deployment and Ops (Personal Use) | Milestone 3 | TODO | 0 | 0 |
 
 ## Confirmed Decisions
@@ -107,10 +107,13 @@ progress:
 - Collaboration mode presets are consumed from `GET /api/collaboration-modes` and applied via `POST /api/threads/:id/collaboration-mode` using server-provided preset fields (mode/model/reasoning/developer_instructions).
 - `POST /api/threads/:id/user-input` mutation is wired in mobile (`useSubmitUserInput`) and invalidates both thread detail and live-state for the same thread.
 - Thread detail screen now includes three control surfaces in one route: collaboration mode selector, pending user-input prompt cards, and existing approval visibility.
+- Thread detail turn rendering now uses `MessageMarkdown` with markdown/fenced-code support and explicit copy actions via `expo-clipboard`.
+- Pending approval cards now support approve/deny actions from mobile through `useRespondToApproval()` with per-request pending/error feedback.
+- Settings persistence now supports two preset profiles (`local`, `tailscale`) with migration from the legacy single-profile keys and active-profile switching in UI.
 
 ## Pending Decisions (Current)
 
-- None blocking Phase 08 planning.
+- None blocking Phase 08 implementation.
 
 ## Deferred Decisions (Intentional)
 
@@ -129,7 +132,7 @@ progress:
 ## Risks and Watch Items
 
 - Farfield API changes may break the mobile client contract.
-- Mobile client UI integration for pending approvals is not yet implemented (planned for Phase 04).
+- Manual iOS + Android UAT execution is still required to formally close Phase 08.
 - React Native SSE libraries may have platform quirks.
 - Metro bundling may resist shared protocol package reuse — add `watchFolders` to `metro.config.js` when adding `@farfield/protocol` as a dep in Phase 04.
 - Security mistakes in remote mode could expose sensitive debug/history endpoints.
@@ -143,8 +146,8 @@ progress:
 ## Session Continuity
 
 - `.continue-here` present: no
-- Current in-progress task: none
-- Stopped At: Completed 07-03-PLAN.md
+- Current in-progress task: Execute and record `08-UAT.md` manual matrix for 08-03 checkpoint
+- Stopped At: Completed 08-01 and 08-02 implementation; awaiting human verify checkpoint
 - Resume command: `/gsd:progress`
 
 ## Recent Work
@@ -174,6 +177,9 @@ progress:
 - 2026-03-05: Executed `06-02-PLAN.md` — SSE query invalidation wiring: routeEvent() pure classifier (event-routing.ts) maps /events payloads to SyncIntents; LiveUpdatesProvider extended with per-domain debounce timer Maps (list 800ms, detail 400ms per-thread, approvals 300ms per-thread, collab 800ms) invalidating queryClient keys via useQueryClient(); useLiveUpdates.ts stable re-export module; Settings screen migrated to saveSettingsAndNotify(); Threads connection banner augmented with live SSE status (live-connected/live-reconnecting/live-error); typecheck/lint/expo-export all pass (`e981503`, `ca6909e`, `c2c55ac`).
 - 2026-03-05: Executed `07-01-PLAN.md` — added typed live-state API module (`live-state.ts`), pending request_user_input extraction helpers, `queryKeys.liveState`, `submitUserInput` mutation transport/hook, and dedicated read hooks (`useThreadLiveState`, `useCollaborationModes`); typecheck/lint pass.
 - 2026-03-05: Executed `07-02/07-03` — thread detail now includes collaboration mode selector (server presets + mutation feedback) and pending request_user_input cards with per-question answer capture + submit; LiveUpdatesProvider invalidates live-state with thread-detail intents; typecheck/lint/start checks pass.
+- 2026-03-05: Executed `08-01-PLAN.md` — added markdown/code rendering (`MessageMarkdown`), copy actions via `expo-clipboard`, and actionable approval approve/deny cards in thread detail (`ApprovalActionCard` + `useRespondToApproval`); typecheck/lint/start checks pass.
+- 2026-03-05: Executed `08-02-PLAN.md` — implemented Local/Tailscale preset profile model, migration-safe storage APIs, Settings preset switcher, and Connection tab active-profile diagnostics; typecheck/lint/start checks pass.
+- 2026-03-05: Created Phase 08 planning artifacts (`08-01/08-02/08-03 PLAN`, `08-01/08-02 SUMMARY`, `08-UAT`) and moved Phase 08 roadmap status to IN_PROGRESS pending manual checkpoint.
 
 ## Notes for Future Commands
 

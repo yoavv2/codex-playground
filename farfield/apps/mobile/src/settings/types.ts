@@ -19,3 +19,47 @@ export const DEFAULT_SETTINGS: ConnectionSettings = {
   authToken: "",
   profileLabel: undefined,
 };
+
+/**
+ * Supported preset profile ids for remote access contexts.
+ */
+export type ConnectionProfileId = "local" | "tailscale";
+
+/**
+ * Complete profile payload persisted by the settings layer.
+ */
+export interface ConnectionProfile {
+  id: ConnectionProfileId;
+  label: string;
+  serverUrl: string;
+  authToken: string;
+}
+
+/**
+ * Multi-profile settings state persisted by Phase 08.
+ */
+export interface ConnectionProfilesState {
+  activeProfileId: ConnectionProfileId;
+  profiles: Record<ConnectionProfileId, ConnectionProfile>;
+}
+
+/**
+ * Deterministic defaults for the Local/Tailscale preset profiles.
+ */
+export const DEFAULT_CONNECTION_PROFILES_STATE: ConnectionProfilesState = {
+  activeProfileId: "local",
+  profiles: {
+    local: {
+      id: "local",
+      label: "Local",
+      serverUrl: "",
+      authToken: "",
+    },
+    tailscale: {
+      id: "tailscale",
+      label: "Tailscale",
+      serverUrl: "",
+      authToken: "",
+    },
+  },
+};

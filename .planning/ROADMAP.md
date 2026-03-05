@@ -11,6 +11,7 @@ Workflow Mode: yolo
 - Preferred repo strategy is Option A (Farfield fork + `apps/mobile`), validated in Phase 01.
 - Codex approval prompt support (command/file/apply-patch) is treated as MVP-blocking for remote usability.
 - Phase 03 execution is intentionally split into three smaller plans (`03-01`, `03-02`, `03-03`) to reduce delivery risk.
+- Phase 08 execution is split into three plans (`08-01`, `08-02`, `08-03`) to isolate thread UX polish, profile switching, and platform/UAT closeout.
 
 ## Milestones
 
@@ -52,7 +53,7 @@ Phases:
 | 05 | 4 | IN_PROGRESS | 2 | 2 | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
 | 06 | 5 | DONE | 3 | 3 | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
 | 07 | 6 | DONE | 3 | 3 | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
-| 08 | 7 | TODO | 0 | 0 | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
+| 08 | 7 | IN_PROGRESS | 3 | 2 | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
 | 09 | 8 | TODO | 0 | 0 | No | Deployment and Ops (Personal Use) | Establish safe Mac runtime patterns and personal app distribution path. |
 
 ## Phase Directories

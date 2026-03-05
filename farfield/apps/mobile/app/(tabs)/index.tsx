@@ -9,7 +9,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "expo-router";
 
-import { loadSettings } from "@/src/settings";
+import { loadProfilesState, loadSettings } from "@/src/settings";
 import { checkHealth } from "@/src/api/health";
 import { useLiveUpdates } from "@/src/live/useLiveUpdates";
 import type { SseStatus } from "@/src/hooks/useSseConnection";
@@ -63,6 +63,7 @@ function LiveTransportRow({ status }: { status: SseStatus }) {
 export default function ConnectionScreen() {
   const [serverUrl, setServerUrl] = useState<string>("");
   const [authToken, setAuthToken] = useState<string>("");
+  const [activeProfileLabel, setActiveProfileLabel] = useState<string>("Local");
   const [hasToken, setHasToken] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [healthStatus, setHealthStatus] = useState<HealthStatus>("unknown");
@@ -77,10 +78,16 @@ export default function ConnectionScreen() {
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const settings = await loadSettings();
+        const [settings, profilesState] = await Promise.all([
+          loadSettings(),
+          loadProfilesState(),
+        ]);
+
+        const activeProfile = profilesState.profiles[profilesState.activeProfileId];
         if (!cancelled) {
           setServerUrl(settings.serverUrl);
           setAuthToken(settings.authToken);
+          setActiveProfileLabel(activeProfile.label);
           setHasToken(Boolean(settings.authToken));
           // Reset health status when settings change
           setHealthStatus("unknown");
@@ -135,6 +142,11 @@ export default function ConnectionScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Connection</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>Active Profile</Text>
+        <Text style={styles.cardValue}>{activeProfileLabel}</Text>
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Server URL</Text>

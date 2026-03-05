@@ -18,6 +18,7 @@ import { useThreadLiveState } from "@/src/hooks/useThreadLiveState";
 import { useCollaborationModes } from "@/src/hooks/useCollaborationModes";
 import {
   useSendMessage,
+  useRespondToApproval,
   useSetCollaborationMode,
   useSubmitUserInput,
 } from "@/src/hooks/useThreadMutations";
@@ -31,9 +32,11 @@ import type { CollaborationModeListItem } from "@/src/api/collaboration";
 import { FarfieldClientError } from "@/src/api/errors";
 import type { ThreadDetailEnvelope } from "@/src/api/threads";
 import type { SseStatus } from "@/src/hooks/useSseConnection";
+import { MessageMarkdown } from "@/src/components/thread/MessageMarkdown";
+import { ApprovalActionCard } from "@/src/components/thread/ApprovalActionCard";
 
 /**
- * Thread Detail screen — MVP chat surface with Phase 07 collaboration controls.
+ * Thread Detail screen — chat/control surface with Phase 08 polish.
  *
  * Reads:
  *   - GET /api/threads/:id
@@ -45,6 +48,7 @@ import type { SseStatus } from "@/src/hooks/useSseConnection";
  *   - POST /api/threads/:id/messages
  *   - POST /api/threads/:id/collaboration-mode
  *   - POST /api/threads/:id/user-input
+ *   - POST /api/threads/:id/pending-approvals/respond
  */
 
 // ---------------------------------------------------------------------------
@@ -88,17 +92,6 @@ function isUserTurn(turn: ThreadDetailEnvelope["thread"]["turns"][number]): bool
   );
 }
 
-function approvalTypeLabel(type: PendingApproval["type"]): string {
-  switch (type) {
-    case "command":
-      return "Command";
-    case "file-change":
-      return "File Change";
-    case "apply-patch":
-      return "Apply Patch";
-  }
-}
-
 function formatModeLabel(mode: string | null | undefined): string {
   if (!mode || mode.trim().length === 0) return "Unknown";
   return mode;
@@ -106,7 +99,7 @@ function formatModeLabel(mode: string | null | undefined): string {
 
 function toModePayload(
   preset: CollaborationModeListItem,
-  fallbackMode: string
+  defaultMode: string
 ): {
   mode: string;
   settings: {
@@ -118,7 +111,7 @@ function toModePayload(
   const mode =
     typeof preset.mode === "string" && preset.mode.trim().length > 0
       ? preset.mode
-      : fallbackMode;
+      : defaultMode;
 
   return {
     mode,
@@ -180,10 +173,10 @@ function requestIsReady(
   });
 }
 
-function errorMessage(error: unknown, fallback: string): string {
+function errorMessage(error: Error | null | undefined, defaultMessage: string): string {
   if (error instanceof FarfieldClientError) return error.message;
   if (error instanceof Error && error.message) return error.message;
-  return fallback;
+  return defaultMessage;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,32 +216,10 @@ function TurnCard({ turn }: { turn: Turn }) {
         </View>
       </View>
       {text ? (
-        <Text style={styles.turnText}>{text}</Text>
+        <MessageMarkdown text={text} />
       ) : (
         <Text style={styles.turnEmpty}>(no text content)</Text>
       )}
-    </View>
-  );
-}
-
-function ApprovalCard({ approval }: { approval: PendingApproval }) {
-  return (
-    <View style={styles.approvalCard}>
-      <View style={styles.approvalHeader}>
-        <View style={styles.approvalTypeBadge}>
-          <Text style={styles.approvalTypeBadgeText}>{approvalTypeLabel(approval.type)}</Text>
-        </View>
-      </View>
-      <Text style={styles.approvalSummary}>{approval.summary}</Text>
-      {approval.detail.command ? (
-        <Text style={styles.approvalDetail} numberOfLines={3}>
-          {String(approval.detail.command)}
-        </Text>
-      ) : null}
-      {approval.detail.reason ? (
-        <Text style={styles.approvalReason}>{String(approval.detail.reason)}</Text>
-      ) : null}
-      <Text style={styles.approvalNote}>Approve/deny controls available in Phase 06.</Text>
     </View>
   );
 }
@@ -481,6 +452,7 @@ export default function ThreadDetailScreen() {
 
   const setModeMutation = useSetCollaborationMode();
   const submitUserInputMutation = useSubmitUserInput();
+  const respondToApprovalMutation = useRespondToApproval();
 
   const [modePendingKey, setModePendingKey] = useState<string | null>(null);
   const [modeErrorText, setModeErrorText] = useState<string | null>(null);
@@ -490,6 +462,8 @@ export default function ThreadDetailScreen() {
   >({});
   const [requestPendingId, setRequestPendingId] = useState<number | null>(null);
   const [requestErrors, setRequestErrors] = useState<Record<number, string>>({});
+  const [approvalPendingId, setApprovalPendingId] = useState<number | null>(null);
+  const [approvalErrors, setApprovalErrors] = useState<Record<number, string>>({});
 
   const thread = threadDetail?.thread;
   const turns: Turn[] = thread?.turns ?? [];
@@ -639,6 +613,50 @@ export default function ThreadDetailScreen() {
     );
   }
 
+  function handleRespondToApproval(
+    approval: PendingApproval,
+    decision: "approve" | "deny"
+  ) {
+    if (!safeThreadId) return;
+
+    setApprovalPendingId(approval.requestId);
+    setApprovalErrors((prev) => ({
+      ...prev,
+      [approval.requestId]: "",
+    }));
+
+    respondToApprovalMutation.mutate(
+      {
+        threadId: safeThreadId,
+        body: {
+          requestId: approval.requestId,
+          decision,
+        },
+      },
+      {
+        onSuccess: () => {
+          setApprovalErrors((prev) => {
+            const next = { ...prev };
+            delete next[approval.requestId];
+            return next;
+          });
+        },
+        onError: (mutationError) => {
+          setApprovalErrors((prev) => ({
+            ...prev,
+            [approval.requestId]: errorMessage(
+              mutationError,
+              "Failed to submit approval decision. Try again."
+            ),
+          }));
+        },
+        onSettled: () => {
+          setApprovalPendingId(null);
+        },
+      }
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={styles.centeredContainer}>
@@ -705,7 +723,15 @@ export default function ThreadDetailScreen() {
       case "turn":
         return <TurnCard turn={item.turn} />;
       case "approval":
-        return <ApprovalCard approval={item.approval} />;
+        return (
+          <ApprovalActionCard
+            approval={item.approval}
+            isPending={approvalPendingId === item.approval.requestId}
+            errorText={approvalErrors[item.approval.requestId] ?? null}
+            onApprove={(approval) => handleRespondToApproval(approval, "approve")}
+            onDeny={(approval) => handleRespondToApproval(approval, "deny")}
+          />
+        );
       case "user-input-request":
         return (
           <UserInputRequestCard

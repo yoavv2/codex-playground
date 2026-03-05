@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Farfield Mobile",
+    "name": "Farfield Remote",
     "slug": "farfield-mobile",
     "version": "0.0.1",
     "orientation": "portrait",
@@ -18,6 +18,11 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.farfield.mobile"
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
     },
     "web": {
       "bundler": "metro",
