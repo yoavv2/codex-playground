@@ -66,32 +66,6 @@ function formatRelativeTime(epochMs: number | undefined): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function extractTurnText(turn: ThreadDetailEnvelope["thread"]["turns"][number]): string {
-  const parts: string[] = [];
-  for (const item of turn.items) {
-    if (item.type === "userMessage" || item.type === "steeringUserMessage") {
-      for (const part of item.content ?? []) {
-        if (part.type === "text" && typeof part.text === "string") {
-          parts.push(part.text);
-        }
-      }
-    } else if (item.type === "agentMessage" && typeof item.text === "string") {
-      parts.push(item.text);
-    } else if (item.type === "plan" && typeof item.text === "string") {
-      parts.push(`[Plan] ${item.text}`);
-    } else if (item.type === "error" && typeof item.message === "string") {
-      parts.push(`[Error] ${item.message}`);
-    }
-  }
-  return parts.join("\n\n").trim();
-}
-
-function isUserTurn(turn: ThreadDetailEnvelope["thread"]["turns"][number]): boolean {
-  return turn.items.some(
-    (item) => item.type === "userMessage" || item.type === "steeringUserMessage"
-  );
-}
-
 function formatModeLabel(mode: string | null | undefined): string {
   if (!mode || mode.trim().length === 0) return "Unknown";
   return mode;
@@ -184,42 +158,214 @@ function errorMessage(error: Error | null | undefined, defaultMessage: string): 
 // ---------------------------------------------------------------------------
 
 type Turn = ThreadDetailEnvelope["thread"]["turns"][number];
+type TurnItem = Turn["items"][number];
 
-function TurnCard({ turn }: { turn: Turn }) {
-  const text = extractTurnText(turn);
-  const startedAt =
-    typeof turn.turnStartedAtMs === "number" ? turn.turnStartedAtMs : undefined;
-  const fromUser = isUserTurn(turn);
+interface ConversationRowBase {
+  id: string;
+  turnStatus: string;
+  startedAt: number | undefined;
+}
+
+interface ConversationBubbleRow extends ConversationRowBase {
+  kind: "bubble";
+  role: "user" | "agent";
+  text: string;
+}
+
+interface ConversationSystemRow extends ConversationRowBase {
+  kind: "system";
+  title: string;
+  body: string;
+}
+
+type ConversationRow = ConversationBubbleRow | ConversationSystemRow;
+
+function extractUserText(item: TurnItem): string {
+  if (item.type !== "userMessage" && item.type !== "steeringUserMessage") {
+    return "";
+  }
+
+  const parts: string[] = [];
+  for (const part of item.content ?? []) {
+    if (part.type === "text" && typeof part.text === "string" && part.text.trim().length > 0) {
+      parts.push(part.text);
+    }
+    if (part.type === "image" && typeof part.url === "string" && part.url.trim().length > 0) {
+      parts.push("[Image]");
+    }
+  }
+
+  return parts.join("\n\n").trim();
+}
+
+function toTitleCaseFromType(type: string): string {
+  return type
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/^./, (s) => s.toUpperCase());
+}
+
+function summarizeSystemItem(item: TurnItem): { title: string; body: string } {
+  switch (item.type) {
+    case "reasoning": {
+      const summary =
+        Array.isArray(item.summary) && item.summary.length > 0
+          ? item.summary.join("\n")
+          : "";
+      const text = typeof item.text === "string" ? item.text.trim() : "";
+      return {
+        title: "Reasoning",
+        body: text || summary || "Reasoning details available.",
+      };
+    }
+    case "plan":
+      return { title: "Plan", body: item.text };
+    case "error":
+      return { title: "Error", body: item.message };
+    case "commandExecution": {
+      const lines = [`$ ${item.command}`, `status: ${item.status}`];
+      if (typeof item.exitCode === "number") lines.push(`exit: ${item.exitCode}`);
+      if (typeof item.durationMs === "number") lines.push(`duration: ${item.durationMs}ms`);
+      return { title: "Command", body: lines.join("\n") };
+    }
+    case "fileChange": {
+      const preview = item.changes
+        .slice(0, 4)
+        .map((change) => `${change.kind.type}: ${change.path}`)
+        .join("\n");
+      return { title: "File changes", body: preview || "File changes recorded." };
+    }
+    case "userInputResponse": {
+      const answered = Object.values(item.answers).reduce((sum, answers) => sum + answers.length, 0);
+      return { title: "User input response", body: `${answered} answer(s) submitted.` };
+    }
+    case "planImplementation":
+      return { title: "Plan implementation", body: item.planContent };
+    case "modelChanged":
+      return {
+        title: "Model changed",
+        body: `${item.fromModel ?? "unknown"} -> ${item.toModel ?? "unknown"}`,
+      };
+    case "mcpToolCall":
+      return { title: "MCP tool call", body: `${item.server}/${item.tool} (${item.status})` };
+    case "collabAgentToolCall":
+      return { title: "Collab tool call", body: `${item.tool} (${item.status})` };
+    case "webSearch":
+      return { title: "Web search", body: item.query };
+    case "imageView":
+      return { title: "Image view", body: item.path };
+    case "contextCompaction":
+      return { title: "Context compaction", body: "Conversation context was compacted." };
+    case "enteredReviewMode":
+      return { title: "Review mode", body: "Entered review mode." };
+    case "exitedReviewMode":
+      return { title: "Review mode", body: "Exited review mode." };
+    default: {
+      return {
+        title: toTitleCaseFromType(item.type),
+        body: "Details available in desktop/web view.",
+      };
+    }
+  }
+}
+
+function buildConversationRows(turns: Turn[]): ConversationRow[] {
+  const rows: ConversationRow[] = [];
+
+  for (const turn of turns) {
+    const startedAt =
+      typeof turn.turnStartedAtMs === "number" ? turn.turnStartedAtMs : undefined;
+    const turnStatus = typeof turn.status === "string" ? turn.status : "unknown";
+    const turnId = turn.id ?? turn.turnId ?? `${startedAt ?? Date.now()}`;
+
+    for (let index = 0; index < turn.items.length; index += 1) {
+      const item = turn.items[index];
+      const rowId = `${turnId}-${item.id ?? index}`;
+
+      if (item.type === "userMessage" || item.type === "steeringUserMessage") {
+        const text = extractUserText(item);
+        rows.push({
+          kind: "bubble",
+          id: rowId,
+          role: "user",
+          text: text || "(no text content)",
+          turnStatus,
+          startedAt,
+        });
+        continue;
+      }
+
+      if (item.type === "agentMessage") {
+        rows.push({
+          kind: "bubble",
+          id: rowId,
+          role: "agent",
+          text: item.text.trim().length > 0 ? item.text : "(no text content)",
+          turnStatus,
+          startedAt,
+        });
+        continue;
+      }
+
+      const summary = summarizeSystemItem(item);
+      rows.push({
+        kind: "system",
+        id: rowId,
+        title: summary.title,
+        body: summary.body,
+        turnStatus,
+        startedAt,
+      });
+    }
+  }
+
+  return rows;
+}
+
+function statusBadgeStyle(status: string) {
+  if (status === "completed") return styles.statusCompleted;
+  if (status === "inProgress" || status === "in-progress") return styles.statusInProgress;
+  return styles.statusOther;
+}
+
+function ConversationRowCard({ row }: { row: ConversationRow }) {
+  if (row.kind === "bubble") {
+    const fromUser = row.role === "user";
+
+    return (
+      <View
+        style={[
+          styles.turnCard,
+          fromUser ? styles.turnCardUser : styles.turnCardAgent,
+        ]}
+      >
+        <View style={styles.turnCardHeader}>
+          <Text style={[styles.turnRole, fromUser ? styles.turnRoleUser : styles.turnRoleAgent]}>
+            {fromUser ? "You" : "Agent"}
+          </Text>
+          <View style={styles.turnMeta}>
+            {row.startedAt ? <Text style={styles.turnTime}>{formatRelativeTime(row.startedAt)}</Text> : null}
+            <View style={[styles.turnStatusBadge, statusBadgeStyle(row.turnStatus)]}>
+              <Text style={styles.turnStatusText}>{row.turnStatus}</Text>
+            </View>
+          </View>
+        </View>
+        <MessageMarkdown text={row.text} />
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.turnCard, fromUser ? styles.turnCardUser : styles.turnCardAgent]}>
-      <View style={styles.turnCardHeader}>
-        <Text style={[styles.turnRole, fromUser ? styles.turnRoleUser : styles.turnRoleAgent]}>
-          {fromUser ? "You" : "Agent"}
-        </Text>
+    <View style={styles.systemCard}>
+      <View style={styles.systemCardHeader}>
+        <Text style={styles.systemCardTitle}>{row.title}</Text>
         <View style={styles.turnMeta}>
-          {startedAt ? (
-            <Text style={styles.turnTime}>{formatRelativeTime(startedAt)}</Text>
-          ) : null}
-          <View
-            style={[
-              styles.turnStatusBadge,
-              turn.status === "completed"
-                ? styles.statusCompleted
-                : turn.status === "inProgress"
-                  ? styles.statusInProgress
-                  : styles.statusOther,
-            ]}
-          >
-            <Text style={styles.turnStatusText}>{turn.status}</Text>
+          {row.startedAt ? <Text style={styles.turnTime}>{formatRelativeTime(row.startedAt)}</Text> : null}
+          <View style={[styles.turnStatusBadge, statusBadgeStyle(row.turnStatus)]}>
+            <Text style={styles.turnStatusText}>{row.turnStatus}</Text>
           </View>
         </View>
       </View>
-      {text ? (
-        <MessageMarkdown text={text} />
-      ) : (
-        <Text style={styles.turnEmpty}>(no text content)</Text>
-      )}
+      <Text style={styles.systemCardBody}>{row.body}</Text>
     </View>
   );
 }
@@ -405,7 +551,7 @@ function UserInputRequestCard({
 // ---------------------------------------------------------------------------
 
 type ListItem =
-  | { kind: "turn"; turn: Turn }
+  | { kind: "conversation-row"; row: ConversationRow }
   | { kind: "approval"; approval: PendingApproval }
   | { kind: "user-input-request"; request: PendingUserInputRequest }
   | { kind: "empty-turns" }
@@ -467,6 +613,7 @@ export default function ThreadDetailScreen() {
 
   const thread = threadDetail?.thread;
   const turns: Turn[] = thread?.turns ?? [];
+  const conversationRows = buildConversationRows(turns);
   const agentId = threadDetail?.agentId;
   const title =
     typeof thread?.title === "string" && thread.title.length > 0
@@ -690,11 +837,11 @@ export default function ThreadDetailScreen() {
 
   const listItems: ListItem[] = [];
 
-  if (turns.length === 0) {
+  if (conversationRows.length === 0) {
     listItems.push({ kind: "empty-turns" });
   } else {
-    for (const turn of turns) {
-      listItems.push({ kind: "turn", turn });
+    for (const row of conversationRows) {
+      listItems.push({ kind: "conversation-row", row });
     }
   }
 
@@ -720,8 +867,8 @@ export default function ThreadDetailScreen() {
 
   function renderItem({ item }: { item: ListItem }) {
     switch (item.kind) {
-      case "turn":
-        return <TurnCard turn={item.turn} />;
+      case "conversation-row":
+        return <ConversationRowCard row={item.row} />;
       case "approval":
         return (
           <ApprovalActionCard
@@ -872,7 +1019,9 @@ export default function ThreadDetailScreen() {
 
       <Text style={styles.sectionTitle}>
         Conversation
-        {turns.length > 0 ? ` (${turns.length} turn${turns.length === 1 ? "" : "s"})` : ""}
+        {conversationRows.length > 0
+          ? ` (${conversationRows.length} item${conversationRows.length === 1 ? "" : "s"})`
+          : ""}
       </Text>
     </View>
   );
@@ -889,7 +1038,7 @@ export default function ThreadDetailScreen() {
         contentContainerStyle={styles.listContent}
         data={listItems}
         keyExtractor={(item, i) => {
-          if (item.kind === "turn") return item.turn.id ?? `turn-${i}`;
+          if (item.kind === "conversation-row") return item.row.id ?? `row-${i}`;
           if (item.kind === "approval") return `approval-${item.approval.requestId}`;
           if (item.kind === "user-input-request") {
             return `user-input-${item.request.requestId}`;
@@ -1073,7 +1222,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     alignSelf: "flex-start",
     maxWidth: "90%",
-    width: "100%",
   },
   turnCardHeader: {
     flexDirection: "row",
@@ -1120,15 +1268,30 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#3A3A3C",
   },
-  turnText: {
-    fontSize: 14,
-    color: "#1C1C1E",
-    lineHeight: 20,
+  systemCard: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: "#F8F8FA",
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
   },
-  turnEmpty: {
-    fontSize: 13,
-    color: "#C7C7CC",
-    fontStyle: "italic",
+  systemCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  systemCardTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#636366",
+    letterSpacing: 0.3,
+  },
+  systemCardBody: {
+    fontSize: 14,
+    color: "#3A3A3C",
+    lineHeight: 20,
   },
   approvalCard: {
     backgroundColor: "#FFF8EC",

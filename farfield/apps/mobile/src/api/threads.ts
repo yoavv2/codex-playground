@@ -14,6 +14,7 @@
 
 import { z } from "zod";
 import {
+  AppServerStartThreadResponseSchema,
   AppServerThreadListItemSchema,
   ThreadConversationStateSchema,
 } from "@farfield/protocol";
@@ -49,6 +50,18 @@ const ThreadDetailEnvelopeSchema = z.object({
   thread: ThreadConversationStateSchema,
 });
 
+/**
+ * Envelope returned by POST /api/threads.
+ */
+const CreateThreadEnvelopeSchema = z
+  .object({
+    ok: z.literal(true),
+    threadId: z.string().min(1),
+    agentId: z.enum(["codex", "opencode"]),
+  })
+  .merge(AppServerStartThreadResponseSchema)
+  .passthrough();
+
 // ---------------------------------------------------------------------------
 // Inferred types (exported for hook and UI use)
 // ---------------------------------------------------------------------------
@@ -56,6 +69,18 @@ const ThreadDetailEnvelopeSchema = z.object({
 export type ThreadListEnvelope = z.infer<typeof ThreadListEnvelopeSchema>;
 export type ThreadDetailEnvelope = z.infer<typeof ThreadDetailEnvelopeSchema>;
 export type ThreadListItem = z.infer<typeof AppServerThreadListItemSchema>;
+export type CreateThreadEnvelope = z.infer<typeof CreateThreadEnvelopeSchema>;
+
+export interface CreateThreadBody {
+  agentId?: "codex" | "opencode";
+  cwd?: string;
+  model?: string;
+  modelProvider?: string;
+  personality?: string;
+  sandbox?: string;
+  approvalPolicy?: string;
+  ephemeral?: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Read functions
@@ -104,7 +129,28 @@ export async function listThreads(): Promise<ThreadListEnvelope> {
  * @returns Validated thread detail envelope with agentId and conversation state.
  * @throws {FarfieldClientError} on any transport or validation failure.
  */
-export async function readThread(threadId: string): Promise<ThreadDetailEnvelope> {
-  const raw = await fetchJson(`/api/threads/${encodeURIComponent(threadId)}`);
-  return parse(ThreadDetailEnvelopeSchema, raw, `GET /api/threads/${threadId}`);
+export async function readThread(
+  threadId: string,
+  options?: { includeTurns?: boolean }
+): Promise<ThreadDetailEnvelope> {
+  const includeTurns = options?.includeTurns ?? true;
+  const path = `/api/threads/${encodeURIComponent(threadId)}?includeTurns=${
+    includeTurns ? "true" : "false"
+  }`;
+  const raw = await fetchJson(path);
+  return parse(ThreadDetailEnvelopeSchema, raw, `GET ${path}`);
+}
+
+/**
+ * Create a new thread via POST /api/threads.
+ *
+ * @param body - Optional thread creation payload.
+ * @returns Validated envelope with new thread id and selected agent.
+ */
+export async function createThread(body?: CreateThreadBody): Promise<CreateThreadEnvelope> {
+  const raw = await fetchJson("/api/threads", {
+    method: "POST",
+    body: body ?? {},
+  });
+  return parse(CreateThreadEnvelopeSchema, raw, "POST /api/threads");
 }

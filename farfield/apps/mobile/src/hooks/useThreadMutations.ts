@@ -32,6 +32,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
+  createThread,
+  type CreateThreadBody,
+  type CreateThreadEnvelope,
+} from "@/src/api/threads";
+import {
   sendMessage,
   type SendMessageBody,
   type SendMessageResponse,
@@ -51,6 +56,33 @@ import {
   type RespondToApprovalResponse,
 } from "@/src/api/thread-actions";
 import { queryKeys } from "@/src/api/queryKeys";
+
+// ---------------------------------------------------------------------------
+// useCreateThread
+// ---------------------------------------------------------------------------
+
+export interface CreateThreadArgs {
+  body?: CreateThreadBody;
+}
+
+/**
+ * Mutation hook for POST /api/threads.
+ *
+ * Invalidates on success:
+ *   - Thread list (new thread appears in list)
+ */
+export function useCreateThread() {
+  const queryClient = useQueryClient();
+
+  return useMutation<CreateThreadEnvelope, Error, CreateThreadArgs>({
+    mutationFn: ({ body }) => createThread(body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.threads.list(),
+      });
+    },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // useSendMessage

@@ -21,14 +21,12 @@ import { SchemaMismatchError } from "./errors";
 /** Capabilities flags exposed per agent by the server. */
 const AgentCapabilitiesSchema = z
   .object({
-    canSendMessages: z.boolean().optional(),
-    canStartThread: z.boolean().optional(),
-    canListModels: z.boolean().optional(),
-    canSetCollaborationMode: z.boolean().optional(),
-    canInterrupt: z.boolean().optional(),
-    canReplay: z.boolean().optional(),
-    canReadLiveState: z.boolean().optional(),
-    canReadStreamEvents: z.boolean().optional(),
+    canListModels: z.boolean(),
+    canListCollaborationModes: z.boolean(),
+    canSetCollaborationMode: z.boolean(),
+    canSubmitUserInput: z.boolean(),
+    canReadLiveState: z.boolean(),
+    canReadStreamEvents: z.boolean(),
   })
   .passthrough();
 
@@ -37,16 +35,17 @@ const AgentDescriptorSchema = z
   .object({
     id: z.string().min(1),
     label: z.string(),
-    isConnected: z.boolean(),
+    enabled: z.boolean(),
+    connected: z.boolean(),
     capabilities: AgentCapabilitiesSchema,
-    projectDirectories: z.array(z.string()).optional(),
+    projectDirectories: z.array(z.string()),
   })
   .passthrough();
 
 const AgentListEnvelopeSchema = z.object({
   ok: z.literal(true),
   agents: z.array(AgentDescriptorSchema),
-  defaultAgentId: z.union([z.string(), z.null()]).optional(),
+  defaultAgentId: z.union([z.string(), z.null()]),
 });
 
 // ---------------------------------------------------------------------------
