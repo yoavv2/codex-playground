@@ -220,10 +220,16 @@ function useInvalidationHandler() {
                 void queryClientRef.current.invalidateQueries({
                   queryKey: queryKeys.threads.detail(threadId),
                 });
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.liveState.forThread(threadId),
+                });
               } else {
                 // No threadId known — invalidate all thread detail queries
                 void queryClientRef.current.invalidateQueries({
                   queryKey: queryKeys.threads.all,
+                });
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.liveState.all,
                 });
               }
             }
@@ -249,9 +255,15 @@ function useInvalidationHandler() {
                 void queryClientRef.current.invalidateQueries({
                   queryKey: queryKeys.threads.detail(threadId),
                 });
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.liveState.forThread(threadId),
+                });
               } else {
                 void queryClientRef.current.invalidateQueries({
                   queryKey: queryKeys.threads.all,
+                });
+                void queryClientRef.current.invalidateQueries({
+                  queryKey: queryKeys.liveState.all,
                 });
               }
             }

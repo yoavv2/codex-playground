@@ -50,8 +50,8 @@ Phases:
 | 03 | 2 | DONE | 3 | 3 | Optional | Create Expo App Skeleton | Bootstrap Expo app shell with persistent connection settings and navigation. |
 | 04 | 3 | DONE | 3 | 3 | No | Build Typed Mobile API Client | Implement authenticated, validated REST/SSE client for Farfield APIs, including approval prompt endpoints. |
 | 05 | 4 | IN_PROGRESS | 2 | 2 | No | MVP UI - Threads and Chat | Build thread list/detail UI with send, interrupt, and approval flows. |
-| 06 | 5 | Complete    | 2026-03-04 | 3 | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
-| 07 | 6 | TODO | 0 | 0 | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
+| 06 | 5 | DONE | 3 | 3 | Optional | Live Updates (SSE) and Reconnect Behavior | Add SSE-driven invalidation, reconnect logic, and resilience. |
+| 07 | 6 | DONE | 3 | 3 | No | Collaboration Mode + User Input Requests | Add mode switching and pending user-input prompt handling. |
 | 08 | 7 | TODO | 0 | 0 | No | UX Polish and Platform Readiness | Improve rendering and app stability across iOS and Android. |
 | 09 | 8 | TODO | 0 | 0 | No | Deployment and Ops (Personal Use) | Establish safe Mac runtime patterns and personal app distribution path. |
 

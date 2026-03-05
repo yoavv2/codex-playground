@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T23:48:33.738Z"
+last_updated: "2026-03-05T01:25:46Z"
 progress:
   total_phases: 9
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 14
+  completed_phases: 6
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # STATE
@@ -18,19 +18,19 @@ progress:
 - Project: Farfield Mobile Remote Controller (Expo)
 - Workflow Mode: yolo
 - Created: 2026-02-26T16:59:33Z
-- Last Updated: 2026-03-04T23:42:24Z
-- Git Branch: codex/06-live-updates-sse-and-reconnect-behavior-plans
+- Last Updated: 2026-03-05T01:25:46Z
+- Git Branch: codex/07-phase-07
 - Current Milestone: Milestone 3 - Live Updates and Collaboration
-- Current Phase: 07 - Collaboration Mode + User Input Requests
-- Progress: 5 / 9 phases complete (56%) — Phase 06 complete (3 plans), Phase 07 next
+- Current Phase: 08 - UX Polish and Platform Readiness
+- Progress: 6 / 9 phases complete (67%) — Phase 07 complete (3 plans), Phase 08 next
 
 ## Current Position
 
-- Status: Phase 06 complete — SSE reconnect foundation (06-01), query invalidation wiring (06-02), and UI live-status surfaces (06-03) all shipped. Live transport status visible in Threads banner (with retry countdown), thread detail (LiveSyncChip), and Connection tab (LiveTransportRow). Pull-to-refresh preserved as fallback throughout.
-- Next Action: Plan and execute Phase 07 — Collaboration Mode + User Input Requests
+- Status: Phase 07 complete — data foundation for live-state/request_user_input (07-01), collaboration mode controls in thread detail (07-02), and pending user-input prompt response UX (07-03) are shipped. Thread detail now supports mode switching and request_user_input submission with typed mutation/query invalidation.
+- Next Action: Plan and execute Phase 08 — UX Polish and Platform Readiness
 - Blocking Issues: none
-- Active Plan File: .planning/phases/06-live-updates-sse-and-reconnect-behavior/06-03-PLAN.md (complete)
-- Active Summary File: .planning/phases/06-live-updates-sse-and-reconnect-behavior/06-03-SUMMARY.md
+- Active Plan File: .planning/phases/07-collaboration-mode-and-user-input-requests/07-03-PLAN.md (complete)
+- Active Summary File: .planning/phases/07-collaboration-mode-and-user-input-requests/07-03-SUMMARY.md
 
 ## Roadmap Snapshot
 
@@ -42,7 +42,7 @@ progress:
 | 04 | Build Typed Mobile API Client | Milestone 2 | DONE | 3 | 3 |
 | 05 | MVP UI - Threads and Chat | Milestone 2 | IN_PROGRESS | 2 | 2 |
 | 06 | Live Updates (SSE) and Reconnect Behavior | Milestone 3 | DONE | 3 | 3 |
-| 07 | Collaboration Mode + User Input Requests | Milestone 3 | TODO | 0 | 0 |
+| 07 | Collaboration Mode + User Input Requests | Milestone 3 | DONE | 3 | 3 |
 | 08 | UX Polish and Platform Readiness | Milestone 3 | TODO | 0 | 0 |
 | 09 | Deployment and Ops (Personal Use) | Milestone 3 | TODO | 0 | 0 |
 
@@ -102,10 +102,15 @@ progress:
 - AppState pause in useSseConnection() cancels retry timers and closes socket; resumes immediately on foreground (retryCount preserved across pause/resume, resets only on successful connect).
 - saveSettingsAndNotify() wraps saveSettings() with listener fan-out; Settings screen should adopt it (Phase 06-02) so URL/token edits trigger SSE reconnect without app restart.
 - LiveUpdatesProvider positioned inside QueryClientProvider in app root so Phase 06-02 invalidation can use both query client and SSE context together.
+- `queryKeys.liveState` added as a first-class query domain; thread-detail SSE intents now invalidate both `threads.detail` and `liveState.forThread`.
+- `GET /api/threads/:id/live-state` is the source for pending request_user_input prompts; pending prompts are filtered from `conversationState.requests` by method `item/tool/requestUserInput` and `completed=false`.
+- Collaboration mode presets are consumed from `GET /api/collaboration-modes` and applied via `POST /api/threads/:id/collaboration-mode` using server-provided preset fields (mode/model/reasoning/developer_instructions).
+- `POST /api/threads/:id/user-input` mutation is wired in mobile (`useSubmitUserInput`) and invalidates both thread detail and live-state for the same thread.
+- Thread detail screen now includes three control surfaces in one route: collaboration mode selector, pending user-input prompt cards, and existing approval visibility.
 
 ## Pending Decisions (Current)
 
-- None blocking Phase 05 plan 03 start.
+- None blocking Phase 08 planning.
 
 ## Deferred Decisions (Intentional)
 
@@ -139,7 +144,7 @@ progress:
 
 - `.continue-here` present: no
 - Current in-progress task: none
-- Stopped At: Completed 06-03-PLAN.md
+- Stopped At: Completed 07-03-PLAN.md
 - Resume command: `/gsd:progress`
 
 ## Recent Work
@@ -167,6 +172,8 @@ progress:
 - 2026-03-04: Executed `05-02-PLAN.md` — converted thread detail to MVP chat surface: useThread gains isRefreshing/isLoading distinction; FlatList+RefreshControl+KeyboardAvoidingView layout; user/agent turn bubble differentiation; Composer with useSendMessage, trim guard, pending disable, draft-clear on success, inline error feedback; typecheck/lint/expo-export all pass (`50f2a4a`, `2b2d568`).
 - 2026-03-05: Executed `06-01-PLAN.md` — SSE reconnect foundation: typed FarfieldStatePayload/FarfieldHistoryPayload + EventSourceConfig passthrough in events.ts; useSseConnection() with 6-state machine (idle/connecting/connected/reconnecting/paused/error), capped exponential backoff (1s-30s, 25% jitter, 8 retries), AppState pause/resume, retryAt metadata; LiveUpdatesProvider + useLiveUpdates() context in app root; subscribeSettingsChanges() + saveSettingsAndNotify() in storage.ts; typecheck/lint/expo-export all pass (`38e227b`, `ec5fa54`, `07002b1`).
 - 2026-03-05: Executed `06-02-PLAN.md` — SSE query invalidation wiring: routeEvent() pure classifier (event-routing.ts) maps /events payloads to SyncIntents; LiveUpdatesProvider extended with per-domain debounce timer Maps (list 800ms, detail 400ms per-thread, approvals 300ms per-thread, collab 800ms) invalidating queryClient keys via useQueryClient(); useLiveUpdates.ts stable re-export module; Settings screen migrated to saveSettingsAndNotify(); Threads connection banner augmented with live SSE status (live-connected/live-reconnecting/live-error); typecheck/lint/expo-export all pass (`e981503`, `ca6909e`, `c2c55ac`).
+- 2026-03-05: Executed `07-01-PLAN.md` — added typed live-state API module (`live-state.ts`), pending request_user_input extraction helpers, `queryKeys.liveState`, `submitUserInput` mutation transport/hook, and dedicated read hooks (`useThreadLiveState`, `useCollaborationModes`); typecheck/lint pass.
+- 2026-03-05: Executed `07-02/07-03` — thread detail now includes collaboration mode selector (server presets + mutation feedback) and pending request_user_input cards with per-question answer capture + submit; LiveUpdatesProvider invalidates live-state with thread-detail intents; typecheck/lint/start checks pass.
 
 ## Notes for Future Commands
 
@@ -186,3 +193,5 @@ progress:
 - Phase 06-02 complete: event-routing.ts pure classifier; LiveUpdatesProvider with debounced invalidation; useLiveUpdates.ts re-export; Settings uses saveSettingsAndNotify(); Threads banner shows SSE live status.
 - Phase 06 entry point for plan 03+: src/live/event-routing.ts (routeEvent + SyncIntent types); src/live/useLiveUpdates.ts (connection state hook); src/live/LiveUpdatesProvider.tsx (debounced invalidation handler).
 - Phase 06 plan 03 complete: Threads banner enhanced with retryAt countdown (setInterval clears on non-reconnecting); LiveSyncChip added to thread detail header card; LiveTransportRow added to Connection tab for runtime SSE health visibility. typecheck/lint pass (`e66ebed`, `6df4827`).
+- Phase 07 entry points: `src/api/live-state.ts`, `src/hooks/useThreadLiveState.ts`, `src/hooks/useCollaborationModes.ts`, and `useSubmitUserInput()` in `src/hooks/useThreadMutations.ts`.
+- Thread detail now owns collaboration/user-input controls: `app/thread/[threadId].tsx` renders mode presets, pending request_user_input cards, and submission flows; pull-to-refresh fans out to thread/live-state/mode queries.

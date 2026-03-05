@@ -51,9 +51,20 @@ export const queryKeys = {
   collaborationModes: {
     /** Root key — invalidates ALL collaboration mode queries. */
     all: ["collaborationModes"] as const,
+    /** Full list of collaboration modes supported by the active agent. */
+    list: () => [...queryKeys.collaborationModes.all, "list"] as const,
     /** Active collaboration mode for a thread. */
     forThread: (threadId: string) =>
       [...queryKeys.collaborationModes.all, "forThread", threadId] as const,
+  },
+
+  /** Live thread state (requests + live-state metadata). */
+  liveState: {
+    /** Root key — invalidates ALL live-state queries. */
+    all: ["liveState"] as const,
+    /** Per-thread live state used for request_user_input rendering. */
+    forThread: (threadId: string) =>
+      [...queryKeys.liveState.all, "forThread", threadId] as const,
   },
 
   /** Server health/connectivity. */
